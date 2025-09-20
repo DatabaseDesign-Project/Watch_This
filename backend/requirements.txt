@@ -1,0 +1,15 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# HTTP 클라이언트
+httpx==0.27.2
+
+# DB/ORM (SQLModel + SQLAlchemy 비동기)
+sqlmodel==0.0.21
+SQLAlchemy[asyncio]==2.0.36
+asyncpg==0.29.0        # Postgres(Neon) 비동기 드라이버
+aiosqlite==0.20.0      # 로컬 SQLite로 테스트할 때 사용(선택적)
+
+# 캐시/환경
+redis==5.0.8
+python-dotenv==1.0.1
