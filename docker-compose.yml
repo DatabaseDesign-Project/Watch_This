@@ -3,15 +3,17 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Dockerfile CMD가 이미 migrate deploy → uvicorn 이므로 command는 생략 가능
+    # command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file: .env
     environment:
       TZ: ${TZ}
+      # 여기에 직접 넣을 수도 있음(보통 .env 사용 권장)
+      # DATABASE_URL: "postgresql://USER:PASSWORD@ep-xxxx.neon.tech/dbname?sslmode=require"
     ports:
-      - "8000:8000"     # 디버깅용
+      - "8000:8000"
     expose:
       - "8000"
-    # SQLite 임시 사용 시 데이터 유지용(선택)
     volumes:
       - api_data:/data
     healthcheck:

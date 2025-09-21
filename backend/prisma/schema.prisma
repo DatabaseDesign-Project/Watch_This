@@ -1,0 +1,19 @@
+// Neon Postgres 연결
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Python Prisma 클라이언트
+generator client {
+  provider  = "prisma-client-py"
+  interface = "asyncio"
+}
+
+// 예시 모델(필요에 맞게 수정/추가)
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}

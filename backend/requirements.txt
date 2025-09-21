@@ -5,6 +5,7 @@ uvicorn[standard]==0.30.6
 httpx==0.27.2
 
 # DB/ORM (SQLModel + SQLAlchemy 비동기)
+prisma==0.12.0
 sqlmodel==0.0.21
 SQLAlchemy[asyncio]==2.0.36
 asyncpg==0.29.0        # Postgres(Neon) 비동기 드라이버
