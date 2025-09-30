@@ -1,21 +1,43 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@font-face {
+    font-family: 'OTEnjoystoriesBA';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/OTEnjoystoriesBA.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'GmarketSansBold';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'GmarketSansMedium';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Noto Sans KR';
+    font-style: normal;
+    font-weight: 400;
+    src: url("https://fonts.gstatic.com/ea/notosanskr/v2/NotoSansKR-Regular.woff2") format('woff2'),
+    url("https://fonts.gstatic.com/ea/notosanskr/v2/NotoSansKR-Regular.woff") format('woff'),
+    url("https://fonts.gstatic.com/ea/notosanskr/v2/NotoSansKR-Regular.otf") format('opentype');
+}
 
 :root{
-    --background-color: #fff;
-    --background-color-primary: #fff;
-    --background-color-secondary: #EFF2F5;
+    --color-primary: #1A1A1A;
+    --color-secondary: #FFF;
+    --color-accent:#FF4757 ;
+    --background-color: #F5F5F5;
 
-    --color-white: #000;
-    --color-black: #fff;
-    --border-color: #D4D4D4;
-    --text-secondary: #55626F;
-
-    --chart-light-bg: #fff;
-    --chart-dark-bg: #050505;
-    --chart-light-border: #D4D4D4;
-    --chart-dark-border: #333;
-    
-    --links-color: #1565C0;
+    --btn-color-primary: #FF4757;
+    --btn-color-primary: #1A1A1A;
+    --btn-color-primary: #6C757D;
+    --color-disabled: #E9ECEF;
 }
 
 *{
@@ -32,9 +54,13 @@ html{
 }
 
 body{
+    font-family: GmarketSansMedium;
+    color: var(--color-primary);
     background: var(--background-color);
     display: flex;
     flex-direction: column;
+    justify-content: center;
+
     gap: 40px;
     transition: all 0.5s ease;
 }
