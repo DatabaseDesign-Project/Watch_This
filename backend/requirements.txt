@@ -1,16 +1,24 @@
+# FastAPI & 서버
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 
 # HTTP 클라이언트
 httpx==0.27.2
 
-# DB/ORM (SQLModel + SQLAlchemy 비동기)
-prisma==0.12.0
+# DB / ORM
+prisma
 sqlmodel==0.0.21
 SQLAlchemy[asyncio]==2.0.36
-asyncpg==0.29.0        # Postgres(Neon) 비동기 드라이버
-aiosqlite==0.20.0      # 로컬 SQLite로 테스트할 때 사용(선택적)
+asyncpg==0.29.0          # PostgreSQL (Neon 포함) 비동기 드라이버
+aiosqlite==0.20.0        # 로컬 SQLite 테스트용 (선택)
 
-# 캐시/환경
+# 인증 / 보안
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+pydantic[email]          # EmailStr 타입 검증용
+
+# 캐시
 redis==5.0.8
+
+# 환경변수
 python-dotenv==1.0.1

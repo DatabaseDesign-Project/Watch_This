@@ -1,4 +1,5 @@
 import { useState } from "react";
+import './index.css'
 import { Button } from "./components/Button";
 import { AuthModal } from "./components/AuthModal";
 import { MobileStatusBar } from "./components/MobileStatusBar";

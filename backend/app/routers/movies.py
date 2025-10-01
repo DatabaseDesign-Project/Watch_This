@@ -4,7 +4,7 @@ import os, httpx, json
 from datetime import timedelta
 from typing import Optional
 import redis.asyncio as aioredis
-from ..deps import get_redis
+from app.core.deps import get_redis
 
 router = APIRouter()
 TMDB = "https://api.themoviedb.org/3"

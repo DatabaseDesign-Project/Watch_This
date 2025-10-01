@@ -1,19 +1,248 @@
-// Neon Postgres 연결
+// schema.prisma
+generator client {
+  provider                    = "prisma-client-py"
+  recursive_type_depth        = -1
+  enable_experimental_decimal = true
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Python Prisma 클라이언트
-generator client {
-  provider  = "prisma-client-py"
-  interface = "asyncio"
+model users {
+  id            BigInt   @id @default(autoincrement())
+  email         String   @unique @db.VarChar(320)
+  password_hash String   @db.VarChar(255)
+  nickname      String   @unique @db.VarChar(20)
+  profile_image String?  @db.VarChar(2048)
+  created_at    DateTime @default(now())
+
+  posts         posts[]
+  comments      comments[]
+  likes         likes[]
+  ratings       ratings[]
+  friends_req   friends[] @relation("Requester")
+  friends_acc   friends[] @relation("Addressee")
+  sent_notis    notifications[] @relation("Sender")
+  recv_notis    notifications[] @relation("Receiver")
+
+  @@index([nickname])
+  @@index([created_at])
 }
 
-// 예시 모델(필요에 맞게 수정/추가)
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+model movies {
+  id             BigInt   @id @default(autoincrement())
+  title          String   @db.VarChar(255)
+  original_title String   @db.VarChar(255)
+  release_date   DateTime
+  director       String   @db.VarChar(255)
+  runtime_minutes Int
+  poster_image   String?  @db.VarChar(2048)
+  is_series      Boolean  @default(false) // 시리즈 여부 구분
+
+  posts          posts[]
+  ratings        ratings[]
+  movie_genres   movie_genres[]
+
+  @@index([title])
+  @@index([release_date])
+}
+
+model genres {
+  id   BigInt  @id @default(autoincrement())
+  name String  @unique @db.VarChar(50)
+
+  movie_genres movie_genres[]
+}
+
+model emojis {
+  id          BigInt  @id @default(autoincrement())
+  name        String  @unique @db.VarChar(50)
+  emoji_image String  @unique @db.VarChar(2048)
+
+  posts posts[]
+}
+
+model posts {
+  post_id     BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  movie_id    BigInt
+  title       String?  @db.VarChar(150)
+  body        String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime?
+  emojis_id   BigInt?
+  visibility  Visibility
+  like_cnt    Int      @default(0)
+
+  user        users    @relation(fields: [user_id], references: [id])
+  movie       movies   @relation(fields: [movie_id], references: [id])
+  emoji       emojis?  @relation(fields: [emojis_id], references: [id])
+
+  comments    comments[]
+  medias      medias[]
+  likes       likes[]
+  answers     answers[]
+  questionMedias question_medias[]
+
+  @@index([user_id])
+  @@index([movie_id])
+  @@index([created_at])
+  @@index([visibility])
+}
+
+model comments {
+  id         BigInt   @id @default(autoincrement())
+  post_id    BigInt
+  user_id    BigInt
+  body       String
+  created_at DateTime @default(now())
+
+  post posts @relation(fields: [post_id], references: [post_id])
+  user users @relation(fields: [user_id], references: [id])
+
+  @@index([post_id])
+  @@index([user_id])
+  @@index([created_at])
+}
+
+model medias {
+  id          BigInt   @id @default(autoincrement())
+  post_id     BigInt
+  media_type  MediaType
+  file_path   String   @db.VarChar(2048)
+  created_at  DateTime @default(now())
+
+  post posts @relation(fields: [post_id], references: [post_id])
+
+  @@index([post_id])
+  @@index([created_at])
+}
+
+model questions {
+  id      BigInt  @id @default(autoincrement())
+  content String  @db.VarChar(255)
+
+  answers        answers[]
+  questionMedias question_medias[]
+}
+
+model notifications {
+  id         BigInt    @id @default(autoincrement())
+  sender_id  BigInt?
+  reciver_id BigInt
+  type       NotiType  @default(system)
+  message    String?   @db.VarChar(255)
+  is_read    Boolean   @default(false)
+  created_at DateTime  @default(now())
+
+  sender   users? @relation("Sender", fields: [sender_id], references: [id])
+  receiver users  @relation("Receiver", fields: [reciver_id], references: [id])
+
+  @@index([reciver_id])
+  @@index([is_read])
+  @@index([created_at])
+}
+
+model ratings {
+  user_id  BigInt
+  movie_id BigInt
+  rating   Decimal @db.Decimal(2, 1)
+
+  user  users  @relation(fields: [user_id], references: [id])
+  movie movies @relation(fields: [movie_id], references: [id])
+
+  @@id([user_id, movie_id])
+  @@index([movie_id])
+}
+
+model likes {
+  user_id    BigInt
+  post_id    BigInt
+  created_at DateTime @default(now())
+
+  user users @relation(fields: [user_id], references: [id])
+  post posts @relation(fields: [post_id], references: [post_id])
+
+  @@id([user_id, post_id])
+  @@index([post_id])
+  @@index([created_at])
+}
+
+model friends {
+  requester_id BigInt
+  addressee_id BigInt
+  status       FriendStatus @default(pending)
+  created_at   DateTime     @default(now())
+  responded_at DateTime?
+
+  requester users @relation("Requester", fields: [requester_id], references: [id])
+  addressee users @relation("Addressee", fields: [addressee_id], references: [id])
+
+  @@id([requester_id, addressee_id])
+  @@index([status])
+}
+
+model movie_genres {
+  movie_id BigInt
+  genre_id BigInt
+
+  movie movies @relation(fields: [movie_id], references: [id])
+  genre genres @relation(fields: [genre_id], references: [id])
+
+  @@id([movie_id, genre_id])
+}
+
+model answers {
+  post_id     BigInt
+  question_id BigInt
+  answer      String
+  created_at  DateTime @default(now())
+
+  post     posts     @relation(fields: [post_id], references: [post_id])
+  question questions @relation(fields: [question_id], references: [id])
+
+  @@id([post_id, question_id])
+}
+
+model question_medias {
+  id          BigInt   @id @default(autoincrement())
+  post_id     BigInt
+  question_id BigInt
+  media_type  MediaType
+  file_path   String   @db.VarChar(2048)
+  created_at  DateTime @default(now())
+
+  post     posts     @relation(fields: [post_id], references: [post_id])
+  question questions @relation(fields: [question_id], references: [id])
+
+  @@index([post_id])
+  @@index([question_id])
+}
+
+enum Visibility {
+  public
+  friends
+  private
+}
+
+enum MediaType {
+  image
+  video
+  audio
+  file
+}
+
+enum NotiType {
+  friend_request
+  comment
+  like
+  system
+  custom
+}
+
+enum FriendStatus {
+  pending
+  accepted
 }
