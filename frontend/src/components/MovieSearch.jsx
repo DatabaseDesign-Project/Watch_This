@@ -1,8 +1,7 @@
-// MovieSearch.jsx
 import { useState } from 'react';
 import MovieCard from './MovieCard';
 
-export default function MovieSearch({ onBack }) {
+export default function MovieSearch({ onBack, onMovieSelect }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
@@ -40,7 +39,6 @@ export default function MovieSearch({ onBack }) {
 
     const handleSearch = () => {
         if (searchQuery.trim()) {
-            // 검색어에 따른 필터링 로직 (실제로는 API 호출)
             const filteredMovies = mockMovies.filter(movie => 
                 movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 movie.genre.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -53,17 +51,17 @@ export default function MovieSearch({ onBack }) {
     };
 
     const handleMovieSelect = (movie) => {
-        console.log('선택된 영화:', movie);
-        // 여기서 영화 선택 후 다음 단계로 진행하는 로직 구현
+        // 부모에서 넘긴 onMovieSelect 실행 → PostWriting으로 전환
+        onMovieSelect(movie);
     };
 
     return (
         <div className="movie-search-container">
             <div className="search-header">
+                <h2 className="search-title">포스트 작성</h2>
                 <button className="back-button" onClick={onBack}>
                     ←
                 </button>
-                <h2 className="search-title">포스트 작성</h2>
             </div>
             
             <p className="search-subtitle">어떤 영화에 대해 포스트를 남기시겠어요?</p>
@@ -98,7 +96,7 @@ export default function MovieSearch({ onBack }) {
                                 <MovieCard 
                                     key={movie.id} 
                                     movie={movie} 
-                                    onSelect={handleMovieSelect}
+                                    onSelect={handleMovieSelect} 
                                 />
                             ))}
                         </>
@@ -111,7 +109,7 @@ export default function MovieSearch({ onBack }) {
                 </div>
             ) : (
                 <div className="search-placeholder">
-                    <p>영화를 검색하시거나</p>
+                    <p>💡 영화를 검색하시거나</p>
                     <p>아래의 인기 영화들을 확인해보세요!</p>
                 </div>
             )}
