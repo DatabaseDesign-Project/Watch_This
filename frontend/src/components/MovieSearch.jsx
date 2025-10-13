@@ -1,3 +1,4 @@
+// src/components/MovieSearch.jsx
 import { useState } from 'react';
 import MovieCard from './MovieCard';
 
@@ -5,67 +6,57 @@ export default function MovieSearch({ onBack, onMovieSelect }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    // 목업 데이터
-    const mockMovies = [
-        {
-            id: 1,
-            title: '모노노케 히메',
-            releaseDate: '2003.04.25',
-            genre: '애니메이션',
-            rating: 9.2,
-            director: '미야자키 하야오',
-            poster: 'https://images.unsplash.com/photo-1614500166678-73b0de0bb934?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzcGlyaXRlZCUyMGF3YXklMjBtaXlhemFraSUyMHBvc3RlcnxlbnwxfHx8fDE3NTkzMTE2MjB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-        },
-        {
-            id: 2,
-            title: '모노노케 히메',
-            releaseDate: '2003.04.25',
-            genre: '애니메이션',
-            rating: 9.2,
-            director: '미야자키 하야오',
-            poster: 'https://images.unsplash.com/photo-1758432320311-4fbe227550f4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdHVkaW8lMjBnaGlibGklMjBhbmltYXRpb24lMjBtb3ZpZXxlbnwxfHx8fDE3NTkzMTE2MjN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-        },
-        {
-            id: 3,
-            title: '모노노케 히메',
-            releaseDate: '2003.04.25',
-            genre: '애니메이션',
-            rating: 9.2,
-            director: '미야자키 하야오',
-            poster: 'https://images.unsplash.com/photo-1716184047509-041f3bd1d937?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMGFuaW1lJTIwbW92aWUlMjBwb3N0ZXJ8ZW58MXx8fHwxNzU5MzExNjI2fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
-        }
-    ];
+    const handleSearch = async () => {
+        const q = searchQuery.trim();
+        if (!q) return;
 
-    const handleSearch = () => {
-        if (searchQuery.trim()) {
-            const filteredMovies = mockMovies.filter(movie => 
-                movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                movie.genre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                movie.director.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            
-            setSearchResults(filteredMovies.length > 0 ? filteredMovies : mockMovies);
-            setHasSearched(true);
+        setLoading(true);
+        setError('');
+        setHasSearched(true);
+
+        try {
+            const url = new URL('/api/movies/search', window.location.origin);
+            url.searchParams.set('q', q);
+            url.searchParams.set('page', '1');
+
+            const res = await fetch(url.toString(), {
+                method: 'GET',
+                headers: { 'accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || '검색 API 실패');
+            }
+            const data = await res.json();
+            const items = Array.isArray(data?.results) ? data.results : [];
+            setSearchResults(items);
+        } catch (e) {
+            setError(e.message || '검색 중 문제가 발생했습니다.');
+            setSearchResults([]);
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleMovieSelect = (movie) => {
-        // 부모에서 넘긴 onMovieSelect 실행 → PostWriting으로 전환
         onMovieSelect(movie);
     };
 
     return (
         <div className="movie-search-container">
             <div className="search-header">
-                <h2 className="search-title">포스트 작성</h2>
                 <button className="back-button" onClick={onBack}>
-                    ←
+                    취소
                 </button>
+                <h2 className="search-title">포스트 작성</h2>
             </div>
-            
+
             <p className="search-subtitle">어떤 영화에 대해 포스트를 남기시겠어요?</p>
-            
+
             <div className="search-section">
                 <div className="search-input-container">
                     <input
@@ -74,44 +65,42 @@ export default function MovieSearch({ onBack, onMovieSelect }) {
                         placeholder="영화명, 장르, 출연진 등을 검색해보세요!"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                                handleSearch();
-                            }
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSearch();
                         }}
                     />
                 </div>
-                
-                <button className="search-button" onClick={handleSearch}>
-                    🎬 내 주변 영화 찾아보기
+
+                <button className="search-button" onClick={handleSearch} disabled={loading}>
+                    {loading ? '검색 중…' : '내가 본 영화 검색하기'}
                 </button>
             </div>
-            
+
             {hasSearched ? (
                 <div className="search-results">
-                    {searchResults.length > 0 ? (
+                    {error && (
+                        <div className="search-placeholder">
+                            <p>{error}</p>
+                        </div>
+                    )}
+
+                    {!error && searchResults.length > 0 ? (
                         <>
-                            <h3 className="search-results-title">검색 결과</h3>
                             {searchResults.map((movie) => (
-                                <MovieCard 
-                                    key={movie.id} 
-                                    movie={movie} 
-                                    onSelect={handleMovieSelect} 
+                                <MovieCard
+                                    key={movie.id}
+                                    movie={movie}
+                                    onSelect={handleMovieSelect}
                                 />
                             ))}
                         </>
-                    ) : (
+                    ) : !error ? (
                         <div className="search-placeholder">
-                            <p>검색 결과가 없습니다.</p>
-                            <p>다른 키워드로 검색해보세요.</p>
                         </div>
-                    )}
+                    ) : null}
                 </div>
             ) : (
-                <div className="search-placeholder">
-                    <p>💡 영화를 검색하시거나</p>
-                    <p>아래의 인기 영화들을 확인해보세요!</p>
-                </div>
+                <div className="search-placeholder" />
             )}
         </div>
     );

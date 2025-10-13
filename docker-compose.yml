@@ -1,15 +1,14 @@
+version: "3.9"
+
 services:
+  # ===== 프로덕션 백엔드 =====
   api:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    # Dockerfile CMD가 이미 migrate deploy → uvicorn 이므로 command는 생략 가능
-    # command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file: backend/.env
     environment:
       TZ: ${TZ}
-      # 여기에 직접 넣을 수도 있음(보통 .env 사용 권장)
-      # DATABASE_URL: "postgresql://USER:PASSWORD@ep-xxxx.neon.tech/dbname?sslmode=require"
     ports:
       - "8000:8000"
     expose:
@@ -23,7 +22,9 @@ services:
       retries: 12
       start_period: 60s
     restart: unless-stopped
+    profiles: ["prod"]
 
+  # ===== 프로덕션 프론트 (nginx 정적 서빙) =====
   web:
     build:
       context: .
@@ -38,7 +39,66 @@ services:
     environment:
       TZ: ${TZ}
     restart: unless-stopped
+    profiles: ["prod"]
 
+  # ===== 개발용 백엔드: 코드 자동 리로드 =====
+  api-dev:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: backend/.env
+    environment:
+      TZ: ${TZ}
+      WATCHFILES_FORCE_POLLING: "true"   # ← Windows+D4W에서 파일변경 감지 안정화
+    volumes:
+      - ./backend:/app                   # ← 최신 코드 반영 포인트
+      - api_data:/data
+    working_dir: /app
+    command: >
+      bash -lc "
+      python -m pip install --no-cache-dir watchfiles &&
+      python -m prisma migrate deploy &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --reload --reload-dir /app --reload-include '*.py' --reload-include '.env'
+      "
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+    profiles: ["dev"]
+
+  # ===== 개발용 프론트: Vite HMR =====
+  web-dev:
+    image: node:20-alpine
+    working_dir: /app
+    environment:
+      TZ: ${TZ}
+      VITE_API_BASE_URL: "http://api-dev:8000"
+      CHOKIDAR_USEPOLLING: "true"        # ← Vite 파일감시 폴링
+      CHOKIDAR_INTERVAL: "100"           # ← 폴링 주기(ms)
+    depends_on:
+      api-dev:
+        condition: service_healthy
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: >
+      sh -lc "
+      corepack enable &&
+      pnpm i --frozen-lockfile || npm ci &&
+      npm run dev -- --host 0.0.0.0 --port 5173
+      "
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    profiles: ["dev"]
+
+  # ===== 선택: 개발용 Redis =====
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly no

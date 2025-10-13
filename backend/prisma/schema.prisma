@@ -93,24 +93,25 @@ model posts {
 }
 
 model comments {
-    id         BigInt   @id @default(autoincrement())
-    post_id    BigInt
-    user_id    BigInt
-    body       String
-    created_at DateTime @default(now())
-    parent_comment_id BigInt? @unique   // 하나의 원댓글에는 최대 1개의 답글만 허용
+    id                BigInt   @id @default(autoincrement())
+    post_id           BigInt
+    user_id           BigInt
+    body              String
+    created_at        DateTime @default(now())
+    parent_comment_id BigInt?              // @unique 제거
 
-    post   posts   @relation(fields: [post_id], references: [post_id], onDelete: Cascade)
-    user   users   @relation(fields: [user_id], references: [id], onDelete: Cascade)
-    parent comments? @relation("CommentReply", fields: [parent_comment_id], references: [id])
-    reply  comments? @relation("CommentReply")
+    post    posts   @relation(fields: [post_id], references: [post_id], onDelete: Cascade)
+    user    users   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    // 부모(원댓글) ↔ 자식(답글들) : 1:N 자기참조
+    parent  comments?  @relation("CommentReply", fields: [parent_comment_id], references: [id])
+    replies comments[] @relation("CommentReply")  // 단수 reply → 복수 replies
 
     @@index([post_id])
     @@index([user_id])
     @@index([created_at])
+    @@index([parent_comment_id]) 
 }
-
-// ✅ medias 모델(테이블) 완전히 제거됨
 
 model questions {
     id      BigInt @id @default(autoincrement())

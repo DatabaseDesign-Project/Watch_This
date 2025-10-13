@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from sqlmodel import SQLModel
 from app.core.deps import engine, get_redis
 from app.api.users import routes as user_routes
+from app.routers import movies
 
 from app.db import db
 
@@ -10,6 +11,7 @@ app = FastAPI(title="CineReco")
 
 # 라우터 등록
 app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
+app.include_router(movies.router, prefix="/api/movies", tags=["movies"])
 
 @app.get("/health")
 def health():

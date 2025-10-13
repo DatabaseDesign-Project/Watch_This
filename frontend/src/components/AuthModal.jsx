@@ -92,9 +92,10 @@ export function AuthModal({ isOpen, onClose, type }) {
                             <Button
                                 type="button"
                                 onClick={onClose}
-                                style={{ backgroundColor: "transparent" }}
+                                aria-label="닫기"
+                                style={{ backgroundColor: "var(--background-color)", padding: 6, borderRadius: 8 }}
                             >
-                                <X style={{ width: "20px", height: "20px" }} />
+                                <X size={20} />
                             </Button>
                         </div>
 

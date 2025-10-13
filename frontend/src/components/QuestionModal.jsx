@@ -10,9 +10,6 @@ export default function QuestionModal({ isOpen, onClose, onSelectQuestion, avail
         <>
             <div className="question-modal-overlay" onClick={onClose} />
             <div className="question-modal">
-                <div className="question-modal-header">
-                    <h3>질문 선택</h3>
-                </div>
                 <div className="question-modal-content">
                     {availableQuestions.map((question, index) => (
                         <div
