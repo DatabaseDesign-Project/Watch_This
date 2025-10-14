@@ -305,6 +305,8 @@ html, body, #root {
   color: var(--btn-color-ghost);
   cursor: pointer;
   transition: color 0.2s;
+  border: none;
+  background-color: transparent;
 }
 
 .nav-item.active {
@@ -312,7 +314,8 @@ html, body, #root {
 }
 
 .nav-icon {
-  font-size: 20px;
+  color: var(--color-accent);
+  font-size: 25px;
   margin-bottom: 4px;
 }
 

@@ -1,5 +1,4 @@
 // /pages/Home.jsx
-
 import { useState } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
