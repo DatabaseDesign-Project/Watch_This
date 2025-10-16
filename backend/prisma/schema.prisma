@@ -14,7 +14,7 @@ model users {
     id            BigInt   @id @default(autoincrement())
     email         String   @unique @db.VarChar(320)
     password_hash String   @db.VarChar(255)
-    nickname      String   @unique @db.VarChar(20)
+    nickname      String   @db.VarChar(20)
     profile_image String?  @db.VarChar(2048)
     created_at    DateTime @default(now())
 
@@ -222,8 +222,6 @@ enum Visibility {
 enum MediaType {
     image
     video
-    audio
-    file
 }
 
 enum NotiType {
