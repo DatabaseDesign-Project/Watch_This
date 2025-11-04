@@ -7,7 +7,7 @@ from app.routers import movies
 
 from app.db import db
 
-app = FastAPI(title="CineReco")
+app = FastAPI(title="Watch This")
 
 # 라우터 등록
 app.include_router(user_routes.router, prefix="/api/users", tags=["users"])

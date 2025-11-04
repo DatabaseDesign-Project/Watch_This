@@ -8,7 +8,7 @@ WORKDIR /app
 
 # SSL 루트 인증서 (Neon SSL 접속용)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates openssl \
+    && apt-get install -y --no-install-recommends curl ca-certificates openssl libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Python 의존성 설치
