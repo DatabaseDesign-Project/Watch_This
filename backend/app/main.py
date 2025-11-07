@@ -4,6 +4,9 @@ from sqlmodel import SQLModel
 from app.core.deps import engine, get_redis
 from app.api.users import routes as user_routes
 from app.routers import movies
+from app.api.v1 import posts as posts_v1
+from app.api.v1 import users as users_v1
+from app.api.v1 import emojis as emojis_v1
 
 from app.db import db
 
@@ -12,6 +15,9 @@ app = FastAPI(title="Watch This")
 # 라우터 등록
 app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
 app.include_router(movies.router, prefix="/api/movies", tags=["movies"])
+app.include_router(posts_v1.router, prefix="/api/v1/posts", tags=["posts"])
+app.include_router(users_v1.router, prefix="/api/v1/users", tags=["users_v1"])
+app.include_router(emojis_v1.router, prefix="/api/v1/emojis", tags=["emojis"])
 
 @app.get("/health")
 def health():

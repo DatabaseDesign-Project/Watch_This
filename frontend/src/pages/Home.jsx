@@ -1,5 +1,5 @@
 // /pages/Home.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import Header from '../components/Header';
@@ -13,39 +13,44 @@ export default function App() {
     const [currentView, setCurrentView] = useState('feed'); // 'feed' | 'movieSearch' | 'postWriting'
     const [activeTab, setActiveTab] = useState('home');
     const [selectedMovie, setSelectedMovie] = useState(null);
+    const [posts, setPosts] = useState([]);
+    // minimal mode: ?minimal=1 will show only posts (no header/nav)
+    const urlParams = new URLSearchParams(window.location.search);
+    const minimal = urlParams.get('minimal') === '1';
 
-    // 목업 데이터
-    const posts = [
-        {
-            id: 1,
-            category: '닉네임',
-            title: '이게뭐야',
-            description:
-                '아직 2편 나오지도 않았는데... 벌써 2편 기대되는... 벌써 2편 기대되는... 벌써 2편 기대되는...',
-            image: 'https://images.unsplash.com/photo-1684900645515-2f5a6a6b40f1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb3ZpZSUyMHBvc3RlciUyMGRhcmslMjBncmFkaWVudHxlbnwxfHx8fDE3NTkyODgxNzh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-            likes: 1,
-            comments: 1,
-        },
-        {
-            id: 2,
-            category: '닉네임',
-            title: '인사이드 아웃 2',
-            description:
-                '아직 2편 나오지도 않았는데... 벌써 2편 기대되는... 벌써 2편 기대되는... 벌써 2편 기대되는...',
-            image: 'https://images.unsplash.com/photo-1733794468538-467f5529154a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg',
-            likes: 1,
-            comments: 1,
-        },
-        {
-            id: 3,
-            category: '닉네임',
-            title: '영화제목',
-            description:
-                '아직 2편 나오지도 않았는데... 벌써 2편 기대되는... 벌써 2편 기대되는...',
-            likes: 1,
-            comments: 1,
-        },
-    ];
+    // fetch feed helper so it can be called from multiple places
+    const fetchFeed = async () => {
+        try {
+            const uid = localStorage.getItem('user_id') || '1';
+            const res = await fetch('/api/v1/posts/feed', {
+                headers: { 'X-User-Id': uid },
+            });
+            if (!res.ok) {
+                console.error('feed fetch failed', res.status);
+                return;
+            }
+            const data = await res.json();
+            const mapped = (data || []).map((p) => ({
+                id: p.post_id,
+                category: p.user?.nickname || '익명',
+                title: p.title || '',
+                description: (p.answers || []).map((a) => a.answer).join('\n'),
+                image: (p.questionMedias && p.questionMedias[0]) ? p.questionMedias[0].file_path : null,
+                likes: p.like_cnt || 0,
+                comments: (p.comments || []).length || 0,
+                emoji: p.emoji?.emoji_image || null,
+            }));
+            setPosts(mapped);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        if (currentView === 'feed') fetchFeed();
+    }, [currentView]);
+
+    // posts are loaded from backend into state; if empty nothing shown
 
     const handleFabClick = () => {
         setCurrentView('movieSearch');
@@ -68,10 +73,13 @@ export default function App() {
     };
 
     // ✅ 추가: PostWriting 제출 완료 → 피드로 이동 (필요 시 서버 전송 로직 연결)
-    const handleSubmitPost = (postData) => {
-        console.log('작성된 포스트 데이터:', postData);
+    const handleSubmitPost = async (postResponse) => {
+        // postResponse is the JSON from server after creating a post
+        console.log('포스트 작성 응답:', postResponse);
         setCurrentView('feed');
         setSelectedMovie(null);
+        // refresh feed
+        await fetchFeed();
     };
 
     return (
@@ -85,15 +93,19 @@ export default function App() {
 
                         <div className="main-content">
                             {posts.map((post) => (
-                                <PostCard key={post.id} post={post} />
+                                <PostCard key={post.id} post={post} minimal={minimal} />
                             ))}
                         </div>
 
-                        <FloatingActionButton onClick={handleFabClick} />
-                        <BottomNavigation
-                            activeTab={activeTab}
-                            onTabChange={setActiveTab}
-                        />
+                        {!minimal && (
+                            <>
+                                <FloatingActionButton onClick={handleFabClick} />
+                                <BottomNavigation
+                                    activeTab={activeTab}
+                                    onTabChange={setActiveTab}
+                                />
+                            </>
+                        )}
                     </>
                 )}
 

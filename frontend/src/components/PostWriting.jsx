@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import QuestionAnswer from './QuestionAnswer';
 import PrivacySelector from './PrivacySelector';
@@ -9,7 +9,8 @@ import Rating from '@mui/material/Rating';
 import Star from '@mui/icons-material/Star';
 import StarBorder from '@mui/icons-material/StarBorder';
 
-const EMOJIS = ['😊', '😢', '😍', '😮', '😱', '😂', '😡', '😴', '🤔', '😎'];
+// local fallback in case server emojis fail
+const FALLBACK_EMOJIS = ['😊', '😢', '😍', '😮', '😱', '😂', '😡', '😴', '🤔', '😎'];
 
 export default function PostWriting({ movie, onBack, onSubmit }) {
     const [postTitle, setPostTitle] = useState('');
@@ -19,6 +20,8 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showQuestionModal, setShowQuestionModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [serverEmojis, setServerEmojis] = useState([]);
+    const [selectedEmojiId, setSelectedEmojiId] = useState(null);
     const [hasSpoiler, setHasSpoiler] = useState(false);
     const [questions, setQuestions] = useState([
         {
@@ -72,28 +75,81 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         ));
     };
 
-    const handleSubmit = () => {
-        const postData = {
-            title: postTitle,
-            movie,
-            watchDate,
-            rating,
-            privacy,
-            hasSpoiler,
-            questions: questions.filter(q => q.answer.trim() !== '')
-        };
-        
-        onSubmit(postData);
+    const mapPrivacy = (p) => {
+        if (!p) return 'public';
+        if (p.includes('전체')) return 'public';
+        if (p.includes('친구')) return 'friends';
+        if (p.includes('비공개')) return 'private';
+        return 'public';
     };
 
-    const handleEmojiSelect = (emoji) => {
+    const handleSubmit = async () => {
+        // Build payload compatible with backend: either movie_id or tmdb_id
+        const payload = {
+            // do not hardcode user_id; backend will read X-User-Id header (dev mode)
+            tmdb_id: movie.id,
+            title: postTitle || `${movie.title} 감상`,
+            emojis_id: selectedEmojiId,
+            visibility: mapPrivacy(privacy),
+            spoiler: !!hasSpoiler,
+            answers: [],
+            medias: [],
+        };
+
+        try {
+            const uid = localStorage.getItem('user_id') || '1';
+            const res = await fetch('/api/v1/posts/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // dev helper header so backend knows current user
+                    'X-User-Id': uid,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                console.error('post create failed', res.status, txt);
+                alert('포스트 작성 실패: ' + (txt || res.status));
+                return;
+            }
+
+            const data = await res.json();
+            // notify parent to refresh feed
+            onSubmit(data);
+        } catch (e) {
+            console.error(e);
+            alert('서버 통신 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleEmojiSelect = (emoji, emojiId=null) => {
         const mainQuestion = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
         if (mainQuestion) {
             const currentAnswer = mainQuestion.answer || '';
             handleQuestionAnswerChange(mainQuestion.id, currentAnswer + emoji);
         }
+        setSelectedEmojiId(emojiId);
         setShowEmojiPicker(false);
     };
+
+    useEffect(() => {
+        // load emojis from server
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/v1/emojis/');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!mounted) return;
+                setServerEmojis(Array.isArray(data) ? data : []);
+            } catch (e) {
+                // ignore, will use fallback
+            }
+        })();
+        return () => { mounted = false };
+    }, []);
 
     const canSubmit = rating > 0 && questions.some(q => q.answer.trim() !== '');
 
@@ -222,15 +278,21 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                     <div className="emoji-picker">
                         <div className="emoji-picker-title">이모지 선택</div>
                         <div className="emoji-grid">
-                            {EMOJIS.map((emoji, index) => (
-                                <div
-                                    key={index}
-                                    className="emoji-item"
-                                    onClick={() => handleEmojiSelect(emoji)}
-                                >
-                                    {emoji}
-                                </div>
-                            ))}
+                                    {(serverEmojis.length ? serverEmojis : FALLBACK_EMOJIS).map((e, index) => {
+                                        // serverEmojis entries are objects {id,name,emoji_image}
+                                        if (typeof e === 'object') {
+                                            return (
+                                                <div key={e.id} className="emoji-item" onClick={() => handleEmojiSelect(e.emoji_image, e.id)}>
+                                                    {e.emoji_image}
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div key={index} className="emoji-item" onClick={() => handleEmojiSelect(e, null)}>
+                                                {e}
+                                            </div>
+                                        );
+                                    })}
                         </div>
                     </div>
                 </>

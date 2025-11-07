@@ -44,6 +44,14 @@ export function AuthModal({ isOpen, onClose, type }) {
                 navigate("/"); // 회원가입은 루트(로그인 화면)로
             } else {
                 alert(`환영합니다, ${data.nickname}님!`);
+                // store dev user id for X-User-Id header usage
+                try {
+                    if (data.user_id) {
+                        localStorage.setItem('user_id', String(data.user_id));
+                    }
+                } catch (e) {
+                    // ignore storage errors
+                }
                 navigate("/home"); // 로그인은 Home 페이지로
             }
         } catch (err) {
