@@ -7,6 +7,7 @@ from app.routers import movies
 from app.api.v1 import posts as posts_v1
 from app.api.v1 import users as users_v1
 from app.api.v1 import emojis as emojis_v1
+from app.api.v1 import medias as medias_v1
 
 from app.db import db
 
@@ -18,6 +19,7 @@ app.include_router(movies.router, prefix="/api/movies", tags=["movies"])
 app.include_router(posts_v1.router, prefix="/api/v1/posts", tags=["posts"])
 app.include_router(users_v1.router, prefix="/api/v1/users", tags=["users_v1"])
 app.include_router(emojis_v1.router, prefix="/api/v1/emojis", tags=["emojis"])
+app.include_router(medias_v1.router, prefix="/api/v1/medias", tags=["medias"])
 
 @app.get("/health")
 def health():
