@@ -1,15 +1,17 @@
 from typing import List, Optional, Dict, Any, Set
-from datetime import datetime, timedelta
+from datetime import datetime
+import time
 import json
 import httpx
 
 from fastapi import APIRouter, HTTPException, Path, Body, Depends, Header, Query
-from pydantic import Field
 
 from app.db import db
 from app.routers import movies as tmdb_mod
 from app.core.deps import get_redis
 from app.schemas.posts import AnswerIn, MediaIn, PostCreate, PostUpdate
+from app.services.social import get_friend_ids, are_friends
+from app.services.visibility import ensure_post_visible, build_visibility_or
 
 router = APIRouter()
 
@@ -29,32 +31,21 @@ def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> int:
         raise HTTPException(status_code=401, detail="X-User-Id header must be an integer")
 
 
-# 요청 스키마는 `app.schemas.posts` 로 이동했습니다.
-
-
 # =========================
 # Questions 캐시 (Redis + in-memory)
 # =========================
 
-# 프로세스 캐시
-_QCACHE: Dict[str, Any] = {
-    "ids": set(),           # type: Set[int]
-    "ts": 0.0               # unix timestamp
-}
-_QCACHE_TTL_SEC = 600       # 10분
+_QCACHE: Dict[str, Any] = {"ids": set(), "ts": 0.0}  # ids: Set[int], ts: unix
+_QCACHE_TTL_SEC = 600
 _QREDIS_KEY = "questions:ids"
-_QREDIS_TTL_SEC = 86400     # 24시간
+_QREDIS_TTL_SEC = 86400
 
 async def _load_questions_from_db() -> Set[int]:
     rows = await db.questions.find_many(select={"id": True})
     return {int(r.id) for r in rows}
 
 async def _get_question_id_set() -> Set[int]:
-    """
-    질문 ID 집합을 반환.
-    우선순위: Redis -> in-memory(유효) -> DB 쿼리(그리고 캐시 갱신).
-    """
-    # 1) Redis 시도
+    # 1) Redis
     rds = get_redis()
     if rds:
         try:
@@ -62,24 +53,21 @@ async def _get_question_id_set() -> Set[int]:
             if raw:
                 return {int(x) for x in json.loads(raw)}
         except Exception:
-            # Redis 에러는 조용히 무시하고 다음 단계로
             pass
 
-    # 2) 프로세스 캐시 검사
-    now = datetime.utcnow().timestamp()
+    # 2) 프로세스 캐시
+    now = time.time()
     if _QCACHE["ts"] and (now - _QCACHE["ts"] < _QCACHE_TTL_SEC):
         ids = _QCACHE["ids"]
         if ids:
             return set(ids)
 
-    # 3) DB에서 로드
+    # 3) DB
     ids = await _load_questions_from_db()
-
-    # 4) 캐시 갱신 (in-memory)
     _QCACHE["ids"] = set(ids)
     _QCACHE["ts"] = now
 
-    # 5) Redis 갱신 (best-effort)
+    # 4) Redis best-effort
     if rds:
         try:
             await rds.setex(_QREDIS_KEY, _QREDIS_TTL_SEC, json.dumps(list(ids)))
@@ -89,15 +77,16 @@ async def _get_question_id_set() -> Set[int]:
     return ids
 
 async def _ensure_valid_question_ids(qids: List[int]) -> None:
-    """
-    요청에 포함된 question_id 들이 모두 유효한지 검증. 하나라도 없으면 400.
-    """
     if not qids:
         return
+    valid = await _get_question_id_set
     valid = await _get_question_id_set()
     invalid = [qid for qid in qids if qid not in valid]
     if invalid:
         raise HTTPException(status_code=400, detail=f"유효하지 않은 question_id 포함: {invalid}")
+
+
+# 친구목록 캐시 및 가시성 로직은 app.services.social / app.services.visibility 로 이동
 
 
 # =========================
@@ -119,7 +108,6 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
     except Exception as e:
         raise HTTPException(status_code=504, detail=f"TMDB 요청 실패: {e}")
 
-    # parse
     title = tmdb.get("title") or tmdb.get("original_title") or "제목 없음"
     original_title = tmdb.get("original_title") or title
     rd = tmdb.get("release_date") or None
@@ -140,7 +128,6 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
     poster_path = tmdb.get("poster_path")
     poster = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
 
-    # dedupe by title + release_date
     existing = await db.movies.find_first(where={"title": title, "release_date": release_dt})
     if existing:
         return int(existing.id)
@@ -232,31 +219,45 @@ async def create_post(payload: PostCreate, current_user_id: int = Depends(get_cu
 
 
 # =========================
-# 피드 (친구/공개/내글)
+# 피드 (가시성 강화 + 커서)
 # =========================
 @router.get("/feed")
 async def feed(
-    cursor: Optional[int] = Query(default=None, description="previous last post_id (LT)"),
+    cursor_created_at: Optional[str] = Query(default=None, description="이 시각 이전(ISO8601)"),
+    cursor_id: Optional[int] = Query(default=None, description="동일 시각 tie-breaker용 post_id"),
     limit: int = Query(20, ge=1, le=100),
     current_user_id: int = Depends(get_current_user_id),
 ):
-    # 친구 ID 수집
-    friends_initiated = await db.friends.find_many(where={"requester_id": current_user_id, "status": "accepted"})
-    friends_received = await db.friends.find_many(where={"addressee_id": current_user_id, "status": "accepted"})
-    friend_ids = [int(f.addressee_id) for f in friends_initiated] + [int(f.requester_id) for f in friends_received]
-
-    # 가시성 필터
-    or_clauses: List[Dict[str, Any]] = [{"visibility": "public"}, {"user_id": current_user_id}]
-    if friend_ids:
-        or_clauses.append({"visibility": "friends", "user_id": {"in": friend_ids}})
+    or_clauses = await build_visibility_or(current_user_id)
 
     where_clause: Dict[str, Any] = {"OR": or_clauses}
-    if cursor:
-        where_clause = {"AND": [{"post_id": {"lt": cursor}}, {"OR": or_clauses}]}
+    if cursor_created_at:
+        # created_at < ts OR (created_at == ts AND post_id < cursor_id)
+        try:
+            where_clause = {
+                "AND": [
+                    {"OR": or_clauses},
+                    {
+                        "OR": [
+                            {"created_at": {"lt": cursor_created_at}},
+                            {
+                                "AND": [
+                                    {"created_at": cursor_created_at},
+                                    {"post_id": {"lt": cursor_id or 0}},
+                                ]
+                            },
+                        ]
+                    },
+                ]
+            }
+        except Exception:
+            where_clause = {"AND": [{"post_id": {"lt": cursor_id or 1 << 63}}, {"OR": or_clauses}]}
+    elif cursor_id:
+        where_clause = {"AND": [{"post_id": {"lt": cursor_id}}, {"OR": or_clauses}]}
 
     posts = await db.posts.find_many(
         where=where_clause,
-        order={"created_at": "desc"},
+        order=[{"created_at": "desc"}, {"post_id": "desc"}],
         take=limit,
         include={"user": True, "answers": True, "questionMedias": True, "emoji": True},
     )
@@ -264,17 +265,20 @@ async def feed(
 
 
 # =========================
-# 단건 조회 (가시성 체크 TODO)
+# 단건 조회 (가시성 강제)
 # =========================
 @router.get("/{post_id}")
-async def get_post(post_id: int = Path(..., ge=1)):
+async def get_post(
+    post_id: int = Path(..., ge=1),
+    current_user_id: int = Depends(get_current_user_id),
+):
     post = await db.posts.find_unique(
         where={"post_id": post_id},
         include={"user": True, "answers": True, "questionMedias": True, "emoji": True},
     )
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
-    # TODO: viewer 기반 가시성 체크 적용
+    await ensure_post_visible(post, current_user_id)
     return post
 
 
@@ -287,7 +291,7 @@ async def update_post(post_id: int = Path(..., ge=1), payload: PostUpdate = Body
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
 
-    if post.user_id != payload.user_id:
+    if int(post.user_id) != int(payload.user_id):
         raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
 
     data: Dict[str, Any] = {}
@@ -297,10 +301,8 @@ async def update_post(post_id: int = Path(..., ge=1), payload: PostUpdate = Body
         data["visibility"] = payload.visibility
     if payload.spoiler is not None:
         data["has_spoiler"] = payload.spoiler
-    # 이모지 갱신
     if payload.emojis_id is not None:
         if payload.emojis_id == 0:
-            # 제거
             data["emojis_id"] = None
         else:
             data["emoji"] = {"connect": {"id": payload.emojis_id}}
@@ -315,28 +317,43 @@ async def update_post(post_id: int = Path(..., ge=1), payload: PostUpdate = Body
 
 
 # =========================
-# 삭제 (soft 미지원이면 hard)
+# 삭제
 # =========================
 @router.delete("/{post_id}")
 async def delete_post(post_id: int = Path(..., ge=1), user_id: int = Body(...)):
     post = await db.posts.find_unique(where={"post_id": post_id})
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
-    if post.user_id != user_id:
+    if int(post.user_id) != int(user_id):
         raise HTTPException(status_code=403, detail="삭제 권한이 없습니다.")
-
-    # 스키마에 deleted_at이 없으므로 hard delete
     await db.posts.delete(where={"post_id": post_id})
     return {"message": "삭제 완료"}
 
 
 # =========================
-# 특정 유저 글 목록
+# 특정 유저 글 목록 (가시성 적용)
 # =========================
 @router.get("/users/{user_id}/posts")
-async def list_user_posts(user_id: int, visibility: Optional[str] = None):
-    where: Dict[str, Any] = {"user_id": user_id}
+async def list_user_posts(
+    user_id: int,
+    visibility: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+    cursor_id: Optional[int] = Query(default=None),
+    current_user_id: int = Depends(get_current_user_id),
+):
     if visibility:
-        where["visibility"] = visibility
-    rows = await db.posts.find_many(where=where, order={"created_at": "desc"})
+        base: Dict[str, Any] = {"user_id": user_id, "visibility": visibility}
+    else:
+    or_clauses = await build_visibility_or(current_user_id)
+        base = {"AND": [{"user_id": user_id}, {"OR": or_clauses}]}
+
+    if cursor_id:
+        base = {"AND": [base, {"post_id": {"lt": cursor_id}}]}
+
+    rows = await db.posts.find_many(
+        where=base,
+        order={"created_at": "desc"},
+        take=limit,
+        include={"emoji": True},
+    )
     return rows
