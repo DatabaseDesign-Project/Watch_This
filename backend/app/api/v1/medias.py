@@ -2,7 +2,7 @@ import os
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
-from app.core.deps import get_current_user_id
+from app.api.v1.posts import get_current_user_id
 from app.db import db
 from app.schemas.medias import MediaUploadOut
 
@@ -22,12 +22,17 @@ async def upload_media(
     file: UploadFile = File(...),
     user_id: int = Depends(get_current_user_id),
 ):
-    # 게시글 존재/소유 확인
+        # 게시글 존재/소유 확인
     post = await db.posts.find_unique(where={"post_id": post_id})
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
     if post.user_id != user_id:
         raise HTTPException(status_code=403, detail="본인 게시글에만 업로드할 수 있습니다.")
+
+    # 질문 존재 확인 (추가)
+    qrow = await db.questions.find_unique(where={"id": question_id})
+    if not qrow:
+        raise HTTPException(status_code=400, detail="유효하지 않은 question_id 입니다.")
 
     # 확장자 보존
     _, ext = os.path.splitext(file.filename or "")
