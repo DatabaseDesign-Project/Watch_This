@@ -1,22 +1,11 @@
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Path, Body, Query
-from pydantic import BaseModel, Field
 
 from app.db import db
 from app.core.deps import get_current_user_id
+from app.schemas.comments import CommentCreateIn, CommentUpdateIn
 
 router = APIRouter()
-
-
-# ====== 스키마 ======
-
-class CommentCreateIn(BaseModel):
-    body: str = Field(..., min_length=1)
-    parent_comment_id: Optional[int] = None
-
-
-class CommentUpdateIn(BaseModel):
-    body: str = Field(..., min_length=1)
 
 
 # ====== 헬퍼 ======

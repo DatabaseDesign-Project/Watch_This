@@ -4,11 +4,12 @@ import json
 import httpx
 
 from fastapi import APIRouter, HTTPException, Path, Body, Depends, Header, Query
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.db import db
 from app.routers import movies as tmdb_mod
 from app.core.deps import get_redis
+from app.schemas.posts import AnswerIn, MediaIn, PostCreate, PostUpdate
 
 router = APIRouter()
 
@@ -28,39 +29,7 @@ def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> int:
         raise HTTPException(status_code=401, detail="X-User-Id header must be an integer")
 
 
-# =========================
-# 요청 스키마
-# =========================
-class AnswerIn(BaseModel):
-    question_id: int
-    answer: str
-
-
-class MediaIn(BaseModel):
-    media_type: str
-    file_path: str
-    question_id: Optional[int] = None
-
-
-class PostCreate(BaseModel):
-    user_id: Optional[int] = None
-    # Either provide an existing movie_id, or provide a tmdb_id (server will import)
-    movie_id: Optional[int] = None
-    tmdb_id: Optional[int] = None
-    title: str = Field(..., max_length=150)
-    emojis_id: Optional[int] = None
-    visibility: str = Field("public")
-    spoiler: bool = False  # -> posts.has_spoiler
-    answers: Optional[List[AnswerIn]] = None
-    medias: Optional[List[MediaIn]] = None
-
-
-class PostUpdate(BaseModel):
-    user_id: int
-    title: Optional[str] = None
-    emojis_id: Optional[int] = None
-    visibility: Optional[str] = None
-    spoiler: Optional[bool] = None  # -> has_spoiler
+# 요청 스키마는 `app.schemas.posts` 로 이동했습니다.
 
 
 # =========================
