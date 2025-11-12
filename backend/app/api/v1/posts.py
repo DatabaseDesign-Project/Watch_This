@@ -344,7 +344,7 @@ async def list_user_posts(
     if visibility:
         base: Dict[str, Any] = {"user_id": user_id, "visibility": visibility}
     else:
-    or_clauses = await build_visibility_or(current_user_id)
+        or_clauses = await build_visibility_or(current_user_id)
         base = {"AND": [{"user_id": user_id}, {"OR": or_clauses}]}
 
     if cursor_id:

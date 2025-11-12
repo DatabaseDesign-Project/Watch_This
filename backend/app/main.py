@@ -14,6 +14,7 @@ from app.api.v1 import medias as medias_v1
 from app.api.v1 import questions as questions_v1
 from app.api.v1 import comments as comments_v1
 from app.api.v1 import likes as likes_v1
+from app.api.v1 import notifications as notifications_v1
 
 from app.db import db
 
@@ -29,6 +30,7 @@ app.include_router(medias_v1.router, prefix="/api/v1/medias", tags=["medias"])
 app.include_router(questions_v1.router, prefix="/api/v1/questions", tags=["questions"])
 app.include_router(comments_v1.router, prefix="/api/v1", tags=["comments"])
 app.include_router(likes_v1.router, prefix="/api/v1", tags=["likes"])
+app.include_router(notifications_v1.router, prefix="/api/v1", tags=["notifications"])
 
 @app.get("/health")
 def health():
