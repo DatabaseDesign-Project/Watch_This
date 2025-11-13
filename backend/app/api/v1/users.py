@@ -1,9 +1,10 @@
 from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import Field
 
 from app.db import db
+from app.schemas.users import ProfileOut, ProfileUpdate
 
 router = APIRouter()
 
@@ -12,19 +13,6 @@ def get_current_user_id(x_user_id: Optional[int] = Header(None)) -> int:
     if not x_user_id:
         raise HTTPException(status_code=401, detail="X-User-Id header required for authentication in this dev mode")
     return x_user_id
-
-
-class ProfileOut(BaseModel):
-    id: int
-    email: EmailStr
-    nickname: str
-    profile_image: Optional[str]
-    created_at: Optional[str]
-
-
-class ProfileUpdate(BaseModel):
-    nickname: Optional[str] = Field(None, max_length=20)
-    profile_image: Optional[str] = None
 
 
 @router.get("/me", response_model=ProfileOut)

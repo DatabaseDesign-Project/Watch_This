@@ -1,10 +1,11 @@
-# app/routers/movies.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 import os, httpx, json, asyncio
 from datetime import timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Set
 import redis.asyncio as aioredis
-from app.core.deps import get_redis
+
+from app.core.deps import get_redis, get_current_user_id
+from app.db import db
 
 router = APIRouter()  # ✅ 내부 prefix 없음
 TMDB = os.environ.get("TMDB_BASE_URL", "https://api.themoviedb.org/3")
@@ -190,3 +191,47 @@ async def movie_detail(tmdb_id: int, rds: Optional[aioredis.Redis] = Depends(get
             pass
 
     return data
+
+# =========================================================
+# 🔽 여기부터 프록시: 영화별 게시글 목록 (가시성 반영)
+# 최종 경로: GET /api/v1/movies/{movie_id}/posts
+# =========================================================
+
+from app.services.visibility import build_visibility_or
+
+@router.get("/{movie_id}/posts")
+async def list_movie_posts_proxy(
+    movie_id: int = Path(..., ge=1),
+    emoji_id: Optional[int] = Query(default=None),
+    spoiler: str = Query("show", pattern="^(show|hide)$"),
+    sort: str = Query("recent", pattern="^(recent|likes)$"),
+    limit: int = Query(20, ge=1, le=100),
+    cursor_id: Optional[int] = Query(default=None),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    """
+    영화 상세 하위의 게시글 목록.
+    - 가시성: public / friends(친구만) / private(작성자 본인만)
+    - 필터: emoji_id, spoiler(hide: 스포일러 글 제외)
+    - 정렬: recent(기본), likes
+    - 커서: post_id 기준 LT
+    """
+    or_clauses = await build_visibility_or(current_user_id)
+
+    where_clause: Dict[str, Any] = {"AND": [{"movie_id": movie_id}, {"OR": or_clauses}]}
+    if emoji_id is not None:
+        where_clause = {"AND": [where_clause, {"emojis_id": emoji_id}]}
+    if spoiler == "hide":
+        where_clause = {"AND": [where_clause, {"has_spoiler": False}]}
+    if cursor_id:
+        where_clause = {"AND": [where_clause, {"post_id": {"lt": cursor_id}}]}
+
+    order = [{"created_at": "desc"}, {"post_id": "desc"}] if sort == "recent" else [{"like_cnt": "desc"}, {"post_id": "desc"}]
+
+    rows = await db.posts.find_many(
+        where=where_clause,
+        order=order,
+        take=limit,
+        include={"user": True, "emoji": True},
+    )
+    return rows

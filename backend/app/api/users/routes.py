@@ -1,23 +1,12 @@
 # backend/app/api/users/routes.py
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
 from prisma import Prisma
 from passlib.hash import bcrypt
 from fastapi.responses import JSONResponse
 from app.db import db
+from app.schemas.auth import SignupRequest, LoginRequest
 
 router = APIRouter()
-
-
-# Pydantic 모델
-class SignupRequest(BaseModel):
-    email: EmailStr
-    password: str
-    nickname: str
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
 
 # 회원가입 API
 @router.post("/signup")
