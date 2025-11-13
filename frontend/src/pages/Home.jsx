@@ -81,7 +81,7 @@ export default function App() {
 
                 {currentView === 'feed' && (
                     <>
-                        <Header title="이거 봤어?" />
+                        <Header title="이거봤어" />
 
                         <div className="main-content">
                             {posts.map((post) => (
