@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, CardMedia, CardContent, Typography, Box, IconButton, Badge, Drawer,
-  List, ListItem, ListItemText, TextField, Button
+  Card,
+  CardMedia,
+  CardContent,
+  Typography,
+  Box,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  TextField,
+  Button,
 } from '@mui/material';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -14,16 +24,18 @@ export default function PostCard({ post }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [input, setInput] = useState('');
+  const [commentCount, setCommentCount] = useState(post.comments ?? 0);
 
   const onToggleLike = async () => {
     try {
-      const res = await toggleLike(post.id); // {liked:boolean, likes:number}
-      setLiked(res.liked);
-      setLikes(res.likes);
-    } catch {
-      // 옵티미스틱 업데이트로도 가능
-      setLiked(v => !v);
-      setLikes(n => (liked ? n - 1 : n + 1));
+      // liked 상태를 기준으로 POST/DELETE 결정 (이미 구현해둔 toggleLike(postId, likedNow) 기준)
+      await toggleLike(post.id, liked);
+      setLiked(prev => {
+        setLikes(n => (prev ? Math.max(0, n - 1) : n + 1));
+        return !prev;
+      });
+    } catch (e) {
+      console.error('좋아요 실패', e);
     }
   };
 
@@ -31,16 +43,24 @@ export default function PostCard({ post }) {
     try {
       const list = await getComments(post.id);
       setComments(list);
-    } catch (e) { console.error(e); }
+      setCommentCount(list.length);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { if (commentsOpen) loadComments(); }, [commentsOpen]);
 
   const onAddComment = async () => {
     if (!input.trim()) return;
-    const newC = await addComment(post.id, input.trim());
-    setInput('');
-    setComments(prev => [...prev, newC]);
+    try {
+      const newC = await addComment(post.id, input.trim());
+      setInput('');
+      setComments(prev => [...prev, newC]);
+      setCommentCount(n => n + 1);
+    } catch (e) {
+      console.error('댓글 추가 실패', e);
+    }
   };
 
   return (
@@ -50,15 +70,29 @@ export default function PostCard({ post }) {
           {post.author}
         </Typography>
         <Typography sx={{ fontWeight: 800, mb: .5 }}>{post.title}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 1.5
-        }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            mb: 1.5,
+          }}
+        >
           {post.preview || post.content}
         </Typography>
       </CardContent>
 
       {post.image && (
-        <CardMedia component="img" height="200" image={post.image} alt={post.title} sx={{ objectFit: 'cover' }} />
+        <CardMedia
+          component="img"
+          height="200"
+          image={post.image}
+          alt={post.title}
+          sx={{ objectFit: 'cover' }}
+        />
       )}
 
       <CardContent sx={{ pt: 1.25 }}>
@@ -67,16 +101,21 @@ export default function PostCard({ post }) {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* 좋아요 */}
           <IconButton onClick={onToggleLike} size="small">
             {liked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
           </IconButton>
-          <Typography variant="body2" color="text.secondary">{likes}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {likes}
+          </Typography>
 
+          {/* 댓글 */}
           <IconButton onClick={() => setCommentsOpen(true)} size="small">
-            <Badge badgeContent={post.comments ?? 0} color="primary">
-              <ChatBubbleOutlineIcon />
-            </Badge>
+            <ChatBubbleOutlineIcon />
           </IconButton>
+          <Typography variant="body2" color="text.secondary">
+            {commentCount}
+          </Typography>
         </Box>
       </CardContent>
 
@@ -90,64 +129,27 @@ export default function PostCard({ post }) {
                   <ListItemText primary={c.author?.name || '익명'} secondary={c.content} />
                 </ListItem>
               ))}
-              {comments.length === 0 && <ListItem><ListItemText primary="첫 댓글을 남겨보세요!" /></ListItem>}
+              {comments.length === 0 && (
+                <ListItem>
+                  <ListItemText primary="첫 댓글을 남겨보세요!" />
+                </ListItem>
+              )}
             </List>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
-              fullWidth size="small" placeholder="댓글을 입력하세요"
-              value={input} onChange={(e)=>setInput(e.target.value)}
+              fullWidth
+              size="small"
+              placeholder="댓글을 입력하세요"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
             />
-            <Button variant="contained" onClick={onAddComment}>등록</Button>
+            <Button variant="contained" onClick={onAddComment}>
+              등록
+            </Button>
           </Box>
         </Box>
       </Drawer>
     </Card>
   );
 }
-
-
-// // PostCard.jsx
-
-// export default function PostCard({ post, minimal = false }) {
-//     return (
-//         <div className="post-card">
-//             {!minimal && (
-//                 <div className="post-header" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-//                     <span className="post-category">{post.category}</span>
-//                     {post.emoji ? (
-//                         <span style={{ fontSize: 18 }}>{post.emoji}</span>
-//                     ) : (
-//                         <span style={{ fontSize: 16 }}>😊</span>
-//                     )}
-//                 </div>
-//             )}
-
-//             {post.title && <h3 className="post-title">{post.title}</h3>}
-
-//             {post.description && (
-//                 <p className="post-description">{post.description}</p>
-//             )}
-
-//             {post.image && (
-//                 // use proper img tag
-//                 <img className="post-image" src={post.image} alt="post media" />
-//             )}
-
-//             {!minimal && (
-//                 <div className="post-actions">
-//                     <div className="post-action">
-//                         <span>♡</span>
-//                         <span>{post.likes}</span>
-//                     </div>
-//                     <div className="post-action">
-//                         <span>💬</span>
-//                         <span>{post.comments}</span>
-//                     </div>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// }
-
-

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, Avatar, Stack
@@ -7,10 +8,18 @@ import { updateProfile, uploadAvatar } from '../api';
 
 export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
   const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  // const [email, setEmail] = useState(user?.email || '');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(user?.profileImage || null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user && open) {
+      setName(user.name || '');
+      setPreview(user.profileImage || null);
+      setFile(null);
+    }
+  }, [user, open]);
 
   const handleFile = (e) => {
     const f = e.target.files?.[0];
@@ -28,7 +37,9 @@ export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
         const up = await uploadAvatar(file); // {url: "..."}
         avatarUrl = up.url;
       }
-      const updated = await updateProfile({ name, email, profileImage: avatarUrl });
+      // const updated = await updateProfile({ name, email, profileImage: avatarUrl });
+      const updated = await updateProfile({ name, profileImage: avatarUrl });
+
       onUpdated(updated);
       onClose();
     } catch (e) {
@@ -48,8 +59,14 @@ export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
             <input type="file" hidden accept="image/*" onChange={handleFile} />
           </Button>
         </Stack>
-        <TextField fullWidth label="이름" sx={{ mb: 2 }} value={name} onChange={(e)=>setName(e.target.value)} />
-        <TextField fullWidth label="이메일" value={email} onChange={(e)=>setEmail(e.target.value)} />
+        {/* <TextField fullWidth label="이름" sx={{ mb: 2 }} value={name} onChange={(e)=>setName(e.target.value)} /> */}
+        {/* <TextField fullWidth label="이메일" value={email} onChange={(e)=>setEmail(e.target.value)} /> */}        <TextField
+          fullWidth
+          label="닉네임"
+          sx={{ mb: 2 }}
+          value={name}
+          onChange={(e)=>setName(e.target.value)}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>취소</Button>
