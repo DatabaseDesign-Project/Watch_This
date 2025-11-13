@@ -83,7 +83,7 @@ export default function App() {
                     <>
                         <Header title="이거봤어" variant="search" />
 
-                        <div className="main-content">
+                        <div className="content-container main-content scrollable-container">
                             {posts.map((post) => (
                                 <PostCard key={post.id} post={post} />
                             ))}

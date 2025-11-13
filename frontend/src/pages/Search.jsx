@@ -3,6 +3,7 @@ import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
 import Header from '../components/Header';
+import { Button } from '../components/Button';
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,12 +97,12 @@ const Search = () => {
       <div className="mobile-container">
         <MobileStatusBar />
 
-        <div className="search-container">
+        <div className="page-container search-container">
           {/* 상단 헤더 (고정) */}
           <Header title="이거봤어" variant="search" />
 
           {/* 스크롤 가능한 콘텐츠 영역 */}
-          <div className="search-content">
+          <div className="content-container search-content scrollable-container">
             {/* 검색 입력 */}
             <div className="search-input-wrapper">
               <form onSubmit={handleSearch} className="search-form">
@@ -113,22 +114,22 @@ const Search = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
                 {searchQuery && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     className="clear-search-button"
                     onClick={handleClearSearch}
                   >
                     <svg className="clear-icon" viewBox="0 0 12 12" fill="none">
                       <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
-                  </button>
+                  </Button>
                 )}
-                <button type="submit" className="search-submit-button">
+                <Button variant="ghost" type="submit" className="search-submit-button">
                   <svg className="search-icon-svg" viewBox="0 0 24 24" fill="none">
                     <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
                     <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
               </form>
             </div>
 
@@ -137,28 +138,30 @@ const Search = () => {
             searchHistory.length > 0 && (
               <div className="search-history-section">
                 <div className="search-history-header">
-                  <h2 className="search-history-title">최근 검색어</h2>
-                  <button className="clear-all-button" onClick={handleClearAllHistory}>
+                  <h2 className="search-history-title text-base font-semibold font-pretendard text-primary">최근 검색어</h2>
+                  <Button variant="text" className="clear-all-button" onClick={handleClearAllHistory}>
                     전체 삭제
-                  </button>
+                  </Button>
                 </div>
                 <ul className="search-history-list">
                   {searchHistory.map((query, index) => (
                     <li key={index} className="search-history-item">
-                      <button
-                        className="history-query"
+                      <Button
+                        variant="ghost"
+                        className="history-query text-md font-pretendard text-primary"
                         onClick={() => handleHistoryClick(query)}
                       >
                         {query}
-                      </button>
-                      <button
-                        className="delete-history-button"
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="btn-ghost delete-history-button"
                         onClick={() => handleDeleteHistory(query)}
                       >
                         <svg className="delete-icon" viewBox="0 0 10 10" fill="none">
                           <path d="M1 1L9 9M1 9L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                         </svg>
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -168,7 +171,7 @@ const Search = () => {
             <>
               {/* 검색어가 없을 때: 인기 작품 & 후기 많은 작품 표시 */}
               <section className="search-movie-section">
-                <h2 className="search-section-title">인기 작품</h2>
+                <h2 className="search-section-title text-md font-bold font-inter text-primary">인기 작품</h2>
                 <div className="search-movie-list">
                   {popularMovies.map((movie) => (
                     <div key={movie.id} className="search-movie-card">
@@ -188,7 +191,7 @@ const Search = () => {
               </section>
 
               <section className="search-movie-section">
-                <h2 className="search-section-title">후기 많은 작품</h2>
+                <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
                 <div className="search-movie-list">
                   {reviewedMovies.map((movie) => (
                     <div key={movie.id} className="search-movie-card">

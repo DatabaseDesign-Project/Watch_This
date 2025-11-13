@@ -4,6 +4,7 @@ import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
 import FriendRequest from './FriendRequest';
 import Header from '../components/Header';
+import { Button } from '../components/Button';
 
 const Notification = () => {
   const [showFriendRequest, setShowFriendRequest] = useState(false);
@@ -90,20 +91,21 @@ const Notification = () => {
       <div className="mobile-container">
         <MobileStatusBar />
 
-        <div className="notification-container">
+        <div className="page-container notification-container scrollable-container">
           {/* 상단 헤더 */}
           <Header title="이거봤어" variant="search" />
 
           {/* 친구 신청 배너 */}
           {friendRequestCount > 0 && (
-            <button
+            <Button
+              variant="outline"
               className="friend-request-banner"
               onClick={handleFriendRequestClick}
             >
               <span className="friend-request-banner-text">
                 친구 신청 {friendRequestCount}명
               </span>
-            </button>
+            </Button>
           )}
 
           {/* 알림 목록 */}
@@ -111,28 +113,28 @@ const Notification = () => {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
+                className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
                 onClick={() => handleNotificationClick(notification.id)}
               >
                 <div className="notification-content">
                   {notification.type === 'comment' ? (
                     <>
-                      <p className="notification-main-text">
+                      <p className="notification-main-text text-base font-inter">
                         {notification.user}님이 댓글을 달았어요.
                       </p>
                       {notification.message && (
-                        <p className="notification-message">
+                        <p className="notification-message text-base font-inter">
                           {notification.message}
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="notification-like">
+                    <p className="notification-like text-base font-semibold font-pretendard">
                       {notification.user}님이 좋아요를 눌렀어요.
                     </p>
                   )}
                 </div>
-                <p className="notification-timestamp">
+                <p className="notification-timestamp item-timestamp text-sm font-pretendard">
                   {notification.timestamp}
                 </p>
               </div>

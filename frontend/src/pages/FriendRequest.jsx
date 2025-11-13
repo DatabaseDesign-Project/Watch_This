@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
+import { Button } from '../components/Button';
 
 const FriendRequest = ({ onBack }) => {
   const [friendRequests, setFriendRequests] = useState([
@@ -46,10 +47,10 @@ const FriendRequest = ({ onBack }) => {
       <div className="mobile-container">
         <MobileStatusBar />
 
-        <div className="friend-request-container">
+        <div className="page-container friend-request-container scrollable-container">
           {/* 상단 헤더 */}
           <header className="friend-request-header">
-            <button className="back-button" onClick={handleBack}>
+            <Button variant="ghost" className="back-button" onClick={handleBack}>
               <svg className="back-icon" viewBox="0 0 29 29" fill="none">
                 <path 
                   d="M18.125 21.75L10.875 14.5L18.125 7.25" 
@@ -59,7 +60,7 @@ const FriendRequest = ({ onBack }) => {
                   strokeLinejoin="round"
                 />
               </svg>
-            </button>
+            </Button>
             <h1 className="friend-request-title">친구 신청 목록</h1>
           </header>
 
@@ -67,28 +68,32 @@ const FriendRequest = ({ onBack }) => {
           <div className="friend-request-list">
             {friendRequests.length > 0 ? (
               friendRequests.map((request) => (
-                <div key={request.id} className="friend-request-item">
-                  <div className="friend-request-info">
-                    <p className="friend-request-item-text">
+                <div key={request.id} className="list-item friend-request-item">
+                  <div className="item-info friend-request-info">
+                    <p className="friend-request-item-text text-base font-semibold font-pretendard text-primary">
                       {request.name}님이 친구신청을 보냈어요.
                     </p>
-                    <p className="friend-request-timestamp">
+                    <p className="friend-request-timestamp item-timestamp text-sm font-pretendard">
                       {request.timestamp}
                     </p>
                   </div>
                   <div className="friend-request-buttons">
-                    <button 
+                    <Button 
+                      variant="outline"
+                      size="md"
                       className="friend-accept-button"
                       onClick={() => handleAccept(request.id, request.name)}
                     >
                       수락
-                    </button>
-                    <button 
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="md"
                       className="friend-reject-button"
                       onClick={() => handleReject(request.id, request.name)}
                     >
                       거절
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))
