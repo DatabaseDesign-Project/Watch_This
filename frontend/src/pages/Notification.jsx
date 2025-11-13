@@ -2,8 +2,11 @@ import { useState } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
+import FriendRequest from './FriendRequest';
+import Header from '../components/Header';
 
 const Notification = () => {
+  const [showFriendRequest, setShowFriendRequest] = useState(false);
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -70,7 +73,17 @@ const Notification = () => {
   const handleFriendRequestClick = () => {
     // 친구 신청 목록으로 이동
     console.log('친구 신청 목록으로 이동');
+    setShowFriendRequest(true);
   };
+
+  const handleBackToNotifications = () => {
+    setShowFriendRequest(false);
+  };
+
+  // 친구 신청 화면이 활성화된 경우
+  if (showFriendRequest) {
+    return <FriendRequest onBack={handleBackToNotifications} />;
+  }
 
   return (
     <div className="fullscreen">
@@ -79,9 +92,7 @@ const Notification = () => {
 
         <div className="notification-container">
           {/* 상단 헤더 */}
-          <header className="search-page-header">
-            <h1 className="search-app-title">이거봤어</h1>
-          </header>
+          <Header title="이거봤어" variant="search" />
 
           {/* 친구 신청 배너 */}
           {friendRequestCount > 0 && (
@@ -89,7 +100,7 @@ const Notification = () => {
               className="friend-request-banner"
               onClick={handleFriendRequestClick}
             >
-              <span className="friend-request-text">
+              <span className="friend-request-banner-text">
                 친구 신청 {friendRequestCount}명
               </span>
             </button>

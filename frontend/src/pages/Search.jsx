@@ -2,6 +2,7 @@ import { useState } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
+import Header from '../components/Header';
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,43 +97,43 @@ const Search = () => {
         <MobileStatusBar />
 
         <div className="search-container">
-          {/* 상단 헤더 */}
-          <header className="search-page-header">
-            <h1 className="search-app-title">이거봤어</h1>
-          </header>
+          {/* 상단 헤더 (고정) */}
+          <Header title="이거봤어" variant="search" />
 
-          {/* 검색 입력 */}
-          <div className="search-input-wrapper">
-            <form onSubmit={handleSearch} className="search-form">
-              <input
-                type="text"
-                className="search-page-input"
-                placeholder="영화 제목, 감독, 출연진 등으로 검색"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className="clear-search-button"
-                  onClick={handleClearSearch}
-                >
-                  <svg className="clear-icon" viewBox="0 0 12 12" fill="none">
-                    <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          {/* 스크롤 가능한 콘텐츠 영역 */}
+          <div className="search-content">
+            {/* 검색 입력 */}
+            <div className="search-input-wrapper">
+              <form onSubmit={handleSearch} className="search-form">
+                <input
+                  type="text"
+                  className="search-page-input"
+                  placeholder="영화 제목, 감독, 출연진 등으로 검색"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="clear-search-button"
+                    onClick={handleClearSearch}
+                  >
+                    <svg className="clear-icon" viewBox="0 0 12 12" fill="none">
+                      <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                )}
+                <button type="submit" className="search-submit-button">
+                  <svg className="search-icon-svg" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </button>
-              )}
-              <button type="submit" className="search-submit-button">
-                <svg className="search-icon-svg" viewBox="0 0 24 24" fill="none">
-                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </button>
-            </form>
-          </div>
+              </form>
+            </div>
 
-          {/* 검색어 입력 중일 때: 검색 기록만 표시 */}
-          {searchQuery ? (
+            {/* 검색어 입력 중일 때: 검색 기록만 표시 */}
+            {searchQuery ? (
             searchHistory.length > 0 && (
               <div className="search-history-section">
                 <div className="search-history-header">
@@ -206,7 +207,8 @@ const Search = () => {
                 </div>
               </section>
             </>
-          )}
+            )}
+          </div>
 
           {/* 하단 네비게이션 */}
           <BottomNavigation activeTab="search" />

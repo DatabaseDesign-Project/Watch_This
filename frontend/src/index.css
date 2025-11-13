@@ -34,21 +34,24 @@ html, body, #root {
 
 /* 전역 스크롤바 스타일 */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
+  margin-right: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+  background: #B0B0B0;
 }
 
 /* 전체 레이아웃 */
@@ -192,14 +195,69 @@ html, body, #root {
   margin-left: 0.25rem;
 }
 
-/* 헤더 */
+/* 범용 헤더 스타일 */
+.app-header {
+  background-color: var(--background-color);
+  padding: 20px 24px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 왼쪽 정렬 */
+}
+
+.app-header-search {
+  padding: 20px 24px 16px;
+}
+
+.app-title {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-primary);
+  margin: 0;
+  text-align: left; /* 왼쪽 정렬 */
+}
+
+.app-title-search {
+  font-family: 'Neurimbo Gothic', 'Pretendard', sans-serif;
+  font-size: 25px;
+  line-height: 1.65em;
+  color: var(--color-primary);
+  font-weight: 400;
+}
+
+/* 범용 뒤로가기 버튼 */
+.back-button {
+  position: absolute;
+  left: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--btn-color-Ghost);
+}
+
+.back-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* 홈 헤더 (기존 유지) */
 .header {
   background-color: var(--background-color);
   padding: 16px 20px;
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* 로고+제목은 왼쪽, 오른쪽 여백은 균등 분배 */
   align-items: center;
   border-bottom: 1px solid #E9ECEF;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .header-title {
@@ -229,26 +287,31 @@ html, body, #root {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 120px; /* 하단 네비게이션 높이 + 여유 공간 */
+  padding-right: 8px; /* 스크롤바 공간 확보 */
+  padding-bottom: 80px; /* 하단 네비게이션 높이에 맞춰 조정 */
   min-height: 0;
+  max-height: calc(100vh - 140px); /* 헤더 높이 제외 */
 }
 
 .main-content::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .main-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
+  margin-right: 4px;
 }
 
 .main-content::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .main-content::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+  background: #B0B0B0;
 }
 
 /* 게시글 카드 */
@@ -340,11 +403,11 @@ html, body, #root {
 }
 
 .nav-item.active {
-  color: var(--color-accent);
+  color: var(--color-accent2);
 }
 
 .nav-icon {
-  color: var(--color-accent);
+  color: var(--color-accent2);
   font-size: 25px;
   margin-bottom: 4px;
 }
@@ -525,25 +588,29 @@ html, body, #root {
 .search-results {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 120px; /* 하단 네비게이션 높이 + 여유 공간 */
+  padding: 0 12px 20px 20px; /* 오른쪽 패딩 줄여서 스크롤바 공간 확보 */
+  max-height: calc(100vh - 200px); /* 검색 헤더와 입력창, 하단 네비게이션 높이 제외 */
 }
 
 .search-results::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .search-results::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
+  margin-right: 4px;
 }
 
 .search-results::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .search-results::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+  background: #B0B0B0;
 }
 
 .search-results-title {
@@ -613,26 +680,30 @@ html, body, #root {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;              /* iOS 부드러운 스크롤 */
     padding: 20px;
+    padding-right: 12px;                            /* 스크롤바 공간 확보 */
     padding-bottom: calc(var(--actions-h, 72px)   
                         + env(safe-area-inset-bottom, 0px));
 }
 
 .post-form::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .post-form::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
+  margin-right: 4px;
 }
 
 .post-form::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .post-form::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+  background: #B0B0B0;
 }
 
 .form-group {
@@ -1073,28 +1144,23 @@ html, body, #root {
 /* 검색 컨테이너 */
 .search-container {
   width: 100%;
-  height: 100%;
+  height: 100vh;
   background-color: var(--background-color);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
 }
 
-/* 검색 헤더 */
-.search-page-header {
-  background-color: var(--background-color);
-  padding: 20px 24px 16px;
+/* 검색 콘텐츠 영역 (헤더 제외한 스크롤 영역) */
+.search-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 80px; /* GNB 높이 + 여유 공간 확보 */
 }
 
-.search-app-title {
-  font-family: 'Neurimbo Gothic', 'Pretendard', sans-serif;
-  font-size: 25px;
-  line-height: 1.65em;
-  color: var(--color-primary);
-  margin: 0;
-  font-weight: 400;
-}
+/* 검색 헤더 */
+/* 기존 search-page-header는 app-header로 대체됨 */
 
 /* 검색 입력 영역 */
 .search-input-wrapper {
@@ -1174,6 +1240,7 @@ html, body, #root {
 /* 검색 기록 섹션 */
 .search-history-section {
   padding: 0 24px;
+  padding-bottom: 80px; /* GNB 높이 + 여유 공간 확보 */
   margin-top: 10px;
 }
 
@@ -1272,7 +1339,7 @@ html, body, #root {
 }
 
 .search-movie-section:last-of-type {
-  margin-bottom: 120px; /* 하단 네비게이션 높이 + 여유 공간 */
+  margin-bottom: 80px; /* GNB 높이 + 여유 공간 확보 */
   padding-bottom: 20px;
 }
 
@@ -1337,23 +1404,26 @@ html, body, #root {
   margin: 0;
 }
 
-/* 스크롤바 스타일 */
-.search-container::-webkit-scrollbar {
-  width: 6px;
+/* 검색 콘텐츠 스크롤바 스타일 */
+.search-content::-webkit-scrollbar {
+  width: 8px;
 }
 
-.search-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+.search-content::-webkit-scrollbar-track {
+  background: transparent;
+  margin-right: 4px;
 }
 
-.search-container::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+.search-content::-webkit-scrollbar-thumb {
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-.search-container::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+.search-content::-webkit-scrollbar-thumb:hover {
+  background: #B0B0B0;
 }
 
 /* ============================================
@@ -1363,12 +1433,13 @@ html, body, #root {
 /* 알림 컨테이너 */
 .notification-container {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 140px); /* 헤더와 하단 네비게이션 높이 제외 */
   background-color: var(--background-color);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding-bottom: 120px; /* 하단 네비게이션 높이 + 여유 공간 */
+  padding-bottom: 20px;
+  padding-right: 8px; /* 스크롤바 공간 확보 */
 }
 
 /* 친구 신청 배너 */
@@ -1390,7 +1461,7 @@ html, body, #root {
   background-color: #FFF5F6;
 }
 
-.friend-request-text {
+.friend-request-banner-text {
   font-family: 'Inter', 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 400;
@@ -1521,19 +1592,169 @@ html, body, #root {
 
 /* 스크롤바 스타일 */
 .notification-container::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .notification-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
+  margin-right: 4px;
 }
 
 .notification-container::-webkit-scrollbar-thumb {
-  background: var(--btn-color-Ghost);
-  border-radius: 3px;
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .notification-container::-webkit-scrollbar-thumb:hover {
-  background: var(--btn-color-Ghost);
-  opacity: 0.8;
+  background: #B0B0B0;
+}
+
+/* ============================================
+   친구 신청 페이지 스타일
+   ============================================ */
+
+/* 친구 신청 컨테이너 */
+.friend-request-container {
+  width: 100%;
+  height: calc(100vh - 140px); /* 헤더와 하단 네비게이션 높이 제외 */
+  background-color: var(--background-color);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 20px;
+  padding-right: 8px; /* 스크롤바 공간 확보 */
+}
+
+/* 친구 신청 헤더 (소제목용) */
+.friend-request-header {
+  background-color: var(--background-color);
+  padding: 20px 24px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #E9ECEF;
+}
+
+.friend-request-title {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-primary);
+  margin: 0;
+  text-align: center;
+}
+
+/* 친구 신청 목록 */
+.friend-request-list {
+  padding: 0 24px;
+  margin-top: 20px;
+}
+
+.friend-request-item {
+  padding: 14px 11px;
+  border-bottom: 0.5px solid #D5D5D5;
+  position: relative;
+}
+
+.friend-request-info {
+  margin-bottom: 15px;
+}
+
+.friend-request-item-text {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.19em;
+  color: var(--color-primary);
+  margin: 0 0 2px 0;
+}
+
+.friend-request-timestamp {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 10px;
+  font-weight: 300;
+  line-height: 1.19em;
+  color: var(--color-primary);
+  margin: 0;
+  position: absolute;
+  top: 14px;
+  right: 11px;
+}
+
+/* 친구 신청 버튼 영역 */
+.friend-request-buttons {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.friend-accept-button,
+.friend-reject-button {
+  width: 144px;
+  height: 32px;
+  background-color: var(--background-color);
+  border: 0.5px solid var(--color-accent3);
+  border-radius: 10px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-accent3);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.friend-accept-button:hover,
+.friend-reject-button:hover {
+  background-color: var(--color-accent3);
+  color: var(--color-secondary);
+}
+
+.friend-accept-button:active,
+.friend-reject-button:active {
+  transform: scale(0.98);
+}
+
+/* 빈 상태 메시지 */
+.friend-request-empty {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.friend-request-empty p {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--btn-color-Ghost);
+  margin: 0;
+}
+
+/* 친구 신청 컨테이너 스크롤바 */
+.friend-request-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.friend-request-container::-webkit-scrollbar-track {
+  background: transparent;
+  margin-right: 4px;
+}
+
+.friend-request-container::-webkit-scrollbar-thumb {
+  background: #CACACA;
+  border-radius: 4px;
+  margin-right: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.friend-request-container::-webkit-scrollbar-thumb:hover {
+  background: #B0B0B0;
 }
