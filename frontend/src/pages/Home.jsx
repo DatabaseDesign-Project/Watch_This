@@ -89,9 +89,9 @@ export default function App() {
 
                 {currentView === 'feed' && (
                     <>
-                        <Header title="이거 봤어?" />
+                        <Header title="이거봤어" variant="search" />
 
-                        <div className="main-content">
+                        <div className="content-container main-content scrollable-container">
                             {posts.map((post) => (
                                 <PostCard key={post.id} post={post} minimal={minimal} />
                             ))}
