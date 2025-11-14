@@ -5,7 +5,16 @@ const API_ROOT = '/api';
 
 // ⚠️ 지금은 dev 모드라서 헤더로 유저를 구분하고 있음
 // 백엔드의 get_current_user_id 참고 (X-User-Id)
-const DEV_USER_ID = '1'; // 필요하면 2, 3으로 바꿔가며 테스트 가능
+// Read dev user id from localStorage so login can change it. Fall back to '1'.
+function getDevUserId() {
+  try {
+    const v = localStorage.getItem('user_id');
+    if (v) return String(v);
+  } catch (e) {
+    // ignore
+  }
+  return '1';
+}
 
 async function jfetch(path, opts = {}) {
   const res = await fetch(`${API_ROOT}${path}`, {
@@ -13,7 +22,7 @@ async function jfetch(path, opts = {}) {
     ...opts,
     headers: {
       'Content-Type': 'application/json',
-      'X-User-Id': DEV_USER_ID,
+      'X-User-Id': getDevUserId(),
       ...(opts.headers || {}),
     },
   });
@@ -71,7 +80,7 @@ export async function uploadAvatar(file) {
     body: fd,
     credentials: 'include',
     headers: {
-      'X-User-Id': DEV_USER_ID,
+      'X-User-Id': getDevUserId(),
       // FormData 사용할 때는 Content-Type 자동 설정되게 두는 게 중요!
     },
   });
