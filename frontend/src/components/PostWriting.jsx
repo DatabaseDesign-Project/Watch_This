@@ -32,6 +32,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
             showEmojiPicker: false
         }
     ]);
+    const [serverQuestions, setServerQuestions] = useState([]);
 
     const predefinedQuestions = [
         '가장 기억에 남는 장면은 무엇인가요?',
@@ -64,10 +65,30 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     };
 
     const getAvailableQuestions = () => {
-        return predefinedQuestions.filter(
+        const source = (serverQuestions && serverQuestions.length) ? serverQuestions.map(s => s.question) : predefinedQuestions;
+        return source.filter(
             q => !questions.some(existing => existing.question === q)
         );
     };
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/v1/questions/');
+                if (!res.ok) return;
+                const data = await res.json();
+                // data expected to be array of { id, question }
+                if (!mounted) return;
+                if (Array.isArray(data)) {
+                    setServerQuestions(data);
+                }
+            } catch (e) {
+                // ignore and fall back to predefined
+            }
+        })();
+        return () => { mounted = false };
+    }, []);
 
     const handleQuestionAnswerChange = (questionId, answer) => {
         setQuestions(questions.map(q => 
