@@ -15,6 +15,7 @@ from app.api.v1 import questions as questions_v1
 from app.api.v1 import comments as comments_v1
 from app.api.v1 import likes as likes_v1
 from app.api.v1 import notifications as notifications_v1
+from app.api.v1 import friends as friends_v1
 
 from app.db import db
 
@@ -31,6 +32,7 @@ app.include_router(questions_v1.router, prefix="/api/v1/questions", tags=["quest
 app.include_router(comments_v1.router, prefix="/api/v1", tags=["comments"])
 app.include_router(likes_v1.router, prefix="/api/v1", tags=["likes"])
 app.include_router(notifications_v1.router, prefix="/api/v1", tags=["notifications"])
+app.include_router(friends_v1.router, prefix="/api/v1", tags=["friends"])
 
 @app.get("/health")
 def health():

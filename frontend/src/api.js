@@ -137,17 +137,78 @@ export const addComment = (postId, content) =>
  * ===================== */
 
 export async function getFriends() {
-  return [];
+  // GET /api/v1/friends
+  return jfetch('/v1/friends');
 }
 
 export async function removeFriend(userId) {
-  console.log('removeFriend called with', userId);
-  return;
+  // DELETE /api/v1/friends/{user_id}
+  return jfetch(`/v1/friends/${userId}`, { method: 'DELETE' });
 }
 
 export async function addFriend(userId) {
-  console.log('addFriend called with', userId);
-  return;
+  // For our app we support sending by email. If userId looks like an email, POST { email }
+  if (typeof userId === 'string' && userId.includes('@')) {
+    return jfetch('/v1/friends/requests', { method: 'POST', body: JSON.stringify({ email: userId }) });
+  }
+  // otherwise if numeric, send by user_id
+  return jfetch('/v1/friends/requests', { method: 'POST', body: JSON.stringify({ user_id: Number(userId) }) });
+}
+
+/* =====================
+ *  Notifications
+ * ===================== */
+
+export async function getNotifications({ is_read = undefined, limit = 20, cursor_id = undefined } = {}) {
+  const qs = [];
+  if (typeof is_read === 'boolean') qs.push(`is_read=${is_read}`);
+  if (limit) qs.push(`limit=${limit}`);
+  if (cursor_id) qs.push(`cursor_id=${cursor_id}`);
+  const q = qs.length ? `?${qs.join('&')}` : '';
+  return jfetch(`/v1/notifications${q}`);
+}
+
+/* =====================
+ *  Questions
+ * ===================== */
+// GET /api/v1/questions
+export async function getQuestions({ q = undefined, limit = 50, offset = 0, order = 'asc' } = {}) {
+  const qs = [];
+  if (q) qs.push(`q=${encodeURIComponent(q)}`);
+  if (limit) qs.push(`limit=${encodeURIComponent(limit)}`);
+  if (offset) qs.push(`offset=${encodeURIComponent(offset)}`);
+  if (order) qs.push(`order=${encodeURIComponent(order)}`);
+  const qstr = qs.length ? `?${qs.join('&')}` : '';
+  return jfetch(`/v1/questions${qstr}`);
+}
+
+export async function markNotificationRead(notiId) {
+  return jfetch(`/v1/notifications/${notiId}/read`, { method: 'PATCH' });
+}
+
+export async function markAllNotificationsRead(older_than_id = undefined) {
+  return jfetch('/v1/notifications/read', { method: 'POST', body: JSON.stringify({ older_than_id }) });
+}
+
+export async function deleteNotification(notiId) {
+  return jfetch(`/v1/notifications/${notiId}`, { method: 'DELETE' });
+}
+
+/* =====================
+ *  Friend requests / friends
+ * ===================== */
+
+export async function getFriendRequests(box = 'in') {
+  // box: 'in' or 'out'
+  return jfetch(`/v1/friends/requests?box=${box}`);
+}
+
+export async function acceptFriendRequest(requesterId) {
+  return jfetch(`/v1/friends/requests/${requesterId}/accept`, { method: 'POST' });
+}
+
+export async function rejectFriendRequest(requesterId) {
+  return jfetch(`/v1/friends/requests/${requesterId}/reject`, { method: 'POST' });
 }
 
 

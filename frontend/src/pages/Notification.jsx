@@ -1,74 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
 import FriendRequest from './FriendRequest';
 import Header from '../components/Header';
 import { Button } from '../components/Button';
+import { getNotifications, markNotificationRead, getFriendRequests } from '../api';
 
 const Notification = () => {
   const [showFriendRequest, setShowFriendRequest] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'comment',
-      user: 'ㅁㅁ',
-      message: '좋은 포스트 감사합니다',
-      timestamp: '2025.09.19 11:00',
-      isRead: false
-    },
-    {
-      id: 2,
-      type: 'like',
-      user: 'ㅇㅇ',
-      message: null,
-      timestamp: '2025.09.19 11:00',
-      isRead: false
-    },
-    {
-      id: 3,
-      type: 'comment',
-      user: 'ㅁㅁ',
-      message: '저는 이 영화 ~~점이 별로였씁니다. 어쩌구저쩌구이러쿵저러쿵길어지면이렇게...으로 넘어가게합시다 2줄까지!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 표시...',
-      timestamp: '2025.09.19 11:00',
-      isRead: false
-    },
-    {
-      id: 4,
-      type: 'like',
-      user: 'ㅇㅇ',
-      message: null,
-      timestamp: '2025.09.19 11:00',
-      isRead: true
-    },
-    {
-      id: 5,
-      type: 'like',
-      user: 'ㅇㅇ',
-      message: null,
-      timestamp: '2025.09.19 11:00',
-      isRead: true
-    },
-    {
-      id: 6,
-      type: 'comment',
-      user: 'ㅁㅁ',
-      message: '좋은 포스트 감사합니다',
-      timestamp: '2025.09.19 11:00',
-      isRead: true
+  const [notifications, setNotifications] = useState([]);
+  const [friendRequestCount, setFriendRequestCount] = useState(0);
+
+  const handleNotificationClick = async (id, isRead) => {
+    // 알림 클릭: 읽음 처리 및 UI 업데이트 (회색 처리)
+    if (!isRead) {
+      try {
+        await markNotificationRead(id);
+      } catch (e) {
+        console.error('알림 읽음 처리 실패', e);
+      }
     }
-  ]);
-
-  const [friendRequestCount] = useState(3);
-
-  const handleNotificationClick = (id) => {
-    // 알림 클릭 시 해당 포스트로 이동하는 로직
-    console.log('알림 클릭:', id);
-
-    // 읽음 처리
-    setNotifications(notifications.map(notif =>
-      notif.id === id ? { ...notif, isRead: true } : notif
-    ));
+    setNotifications((prev) => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   const handleFriendRequestClick = () => {
@@ -77,13 +30,49 @@ const Notification = () => {
     setShowFriendRequest(true);
   };
 
+  const refreshFriendRequestCount = async () => {
+    try {
+      const reqs = await getFriendRequests('in');
+      setFriendRequestCount(Array.isArray(reqs) ? reqs.length : 0);
+    } catch (e) {
+      console.error('친구 요청 수 로드 실패', e);
+    }
+  };
+
   const handleBackToNotifications = () => {
     setShowFriendRequest(false);
   };
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const rows = await getNotifications({ limit: 50 });
+        if (!mounted) return;
+        // rows shape: { id, type, message, is_read, created_at, sender }
+        setNotifications(rows.map(r => ({
+          id: r.id,
+          type: r.type,
+          message: r.message,
+          isRead: !!r.is_read,
+          created_at: r.created_at,
+          sender: r.sender || null,
+        })));
+      } catch (e) {
+        console.error('알림 로드 실패', e);
+      }
+    })();
+    return () => { mounted = false };
+  }, []);
+
+  useEffect(() => {
+    // 초기 친구 요청 수 로드
+    refreshFriendRequestCount();
+  }, []);
+
   // 친구 신청 화면이 활성화된 경우
   if (showFriendRequest) {
-    return <FriendRequest onBack={handleBackToNotifications} />;
+    return <FriendRequest onBack={handleBackToNotifications} onChanged={refreshFriendRequestCount} />;
   }
 
   return (
@@ -110,35 +99,39 @@ const Notification = () => {
 
           {/* 알림 목록 */}
           <div className="notification-list">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
-                onClick={() => handleNotificationClick(notification.id)}
-              >
-                <div className="notification-content">
-                  {notification.type === 'comment' ? (
-                    <>
-                      <p className="notification-main-text text-base font-inter">
-                        {notification.user}님이 댓글을 달았어요.
-                      </p>
-                      {notification.message && (
-                        <p className="notification-message text-base font-inter">
-                          {notification.message}
+            {notifications.map((notification) => {
+              const senderName = notification.sender?.nickname || '익명';
+              const ts = notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR') : '';
+              return (
+                <div
+                  key={notification.id}
+                  className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
+                  onClick={() => handleNotificationClick(notification.id, notification.isRead)}
+                >
+                  <div className="notification-content">
+                    {notification.type === 'comment' ? (
+                      <>
+                        <p className="notification-main-text text-base font-inter">
+                          {senderName}님이 댓글을 달았어요.
                         </p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="notification-like text-base font-semibold font-pretendard">
-                      {notification.user}님이 좋아요를 눌렀어요.
-                    </p>
-                  )}
+                        {notification.message && (
+                          <p className="notification-message text-base font-inter">
+                            {notification.message}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="notification-like text-base font-semibold font-pretendard">
+                        {senderName}님이 좋아요를 눌렀어요.
+                      </p>
+                    )}
+                  </div>
+                  <p className="notification-timestamp item-timestamp text-sm font-pretendard">
+                    {ts}
+                  </p>
                 </div>
-                <p className="notification-timestamp item-timestamp text-sm font-pretendard">
-                  {notification.timestamp}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* 하단 네비게이션 */}

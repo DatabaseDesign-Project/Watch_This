@@ -7,7 +7,7 @@ import Header from '../components/Header';
 import { Button } from '../components/Button';
 import FriendsButton from '../components/FriendsButton';
 import PostCard from '../components/PostCard';
-import { getProfile, getUserPosts } from '../api';
+import { getProfile, getUserPosts, getFriends } from '../api';
 
 // =========================
 // ✨ 샘플 포스트 설정
@@ -66,8 +66,13 @@ function Profile() {
           setPosts(userPosts || []);
         }
         
-        // 친구 수는 실제 데이터가 없으면 기본값 사용
-        setFriendCount(currentUser.friendCount || 15);
+        // 친구 수를 실제 친구 목록 길이로 설정
+        try {
+          const friends = await getFriends();
+          setFriendCount(Array.isArray(friends) ? friends.length : (currentUser.friendCount || 0));
+        } catch (e) {
+          setFriendCount(currentUser.friendCount || 0);
+        }
         
       } catch (error) {
         console.error('프로필 로딩 실패:', error);

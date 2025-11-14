@@ -1,37 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import { Button } from '../components/Button';
+import { getFriendRequests, acceptFriendRequest, rejectFriendRequest } from '../api';
 
-const FriendRequest = ({ onBack }) => {
-  const [friendRequests, setFriendRequests] = useState([
-    {
-      id: 1,
-      name: '민수',
-      timestamp: '2025.09.19 11:00'
-    },
-    {
-      id: 2,
-      name: '혜령',
-      timestamp: '2025.09.19 11:00'
-    },
-    {
-      id: 3,
-      name: '종하',
-      timestamp: '2025.09.19 11:00'
+const FriendRequest = ({ onBack, onChanged }) => {
+  const [friendRequests, setFriendRequests] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const rows = await getFriendRequests('in');
+        if (!mounted) return;
+        // rows: array of { requester, addressee, status, created_at, responded_at }
+        const mapped = (rows || []).map(r => ({
+          requesterId: r.requester?.id,
+          name: r.requester?.nickname || '익명',
+          profileImage: r.requester?.profile_image || null,
+          timestamp: r.created_at,
+        }));
+        setFriendRequests(mapped);
+      } catch (e) {
+        console.error('친구 요청 로드 실패', e);
+      }
+    })();
+    return () => { mounted = false };
+  }, []);
+
+  const handleAccept = async (requesterId, name) => {
+    if (!confirm(`${name}님의 친구 요청을 수락하시겠습니까?`)) return;
+    try {
+      await acceptFriendRequest(requesterId);
+      setFriendRequests(prev => prev.filter(r => r.requesterId !== requesterId));
+      if (onChanged) onChanged();
+    } catch (e) {
+      console.error('수락 실패', e);
+      alert('수락 실패: ' + e.message);
     }
-  ]);
-
-  const handleAccept = (id, name) => {
-    console.log(`${name}님의 친구 신청 수락`);
-    // 친구 수락 API 호출
-    setFriendRequests(friendRequests.filter(request => request.id !== id));
   };
 
-  const handleReject = (id, name) => {
-    console.log(`${name}님의 친구 신청 거절`);
-    // 친구 거절 API 호출
-    setFriendRequests(friendRequests.filter(request => request.id !== id));
+  const handleReject = async (requesterId, name) => {
+    if (!confirm(`${name}님의 친구 요청을 거절하시겠습니까?`)) return;
+    try {
+      await rejectFriendRequest(requesterId);
+      setFriendRequests(prev => prev.filter(r => r.requesterId !== requesterId));
+      if (onChanged) onChanged();
+    } catch (e) {
+      console.error('거절 실패', e);
+      alert('거절 실패: ' + e.message);
+    }
   };
 
   const handleBack = () => {
@@ -68,13 +86,13 @@ const FriendRequest = ({ onBack }) => {
           <div className="friend-request-list">
             {friendRequests.length > 0 ? (
               friendRequests.map((request) => (
-                <div key={request.id} className="list-item friend-request-item">
+                <div key={request.requesterId} className="list-item friend-request-item">
                   <div className="item-info friend-request-info">
                     <p className="friend-request-item-text text-base font-semibold font-pretendard text-primary">
                       {request.name}님이 친구신청을 보냈어요.
                     </p>
                     <p className="friend-request-timestamp item-timestamp text-sm font-pretendard">
-                      {request.timestamp}
+                      {request.timestamp ? new Date(request.timestamp).toLocaleString('ko-KR') : ''}
                     </p>
                   </div>
                   <div className="friend-request-buttons">
@@ -82,7 +100,7 @@ const FriendRequest = ({ onBack }) => {
                       variant="outline"
                       size="md"
                       className="friend-accept-button"
-                      onClick={() => handleAccept(request.id, request.name)}
+                      onClick={() => handleAccept(request.requesterId, request.name)}
                     >
                       수락
                     </Button>
@@ -90,7 +108,7 @@ const FriendRequest = ({ onBack }) => {
                       variant="outline"
                       size="md"
                       className="friend-reject-button"
-                      onClick={() => handleReject(request.id, request.name)}
+                      onClick={() => handleReject(request.requesterId, request.name)}
                     >
                       거절
                     </Button>

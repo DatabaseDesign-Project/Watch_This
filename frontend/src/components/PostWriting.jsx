@@ -3,6 +3,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import QuestionAnswer from './QuestionAnswer';
 import PrivacySelector from './PrivacySelector';
 import QuestionModal from './QuestionModal';
+import { getQuestions } from '../api';
 
 // MUI Rating & Icons
 import Rating from '@mui/material/Rating';
@@ -33,26 +34,31 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         }
     ]);
     const [serverQuestions, setServerQuestions] = useState([]);
+    const [serverQuestionsLoading, setServerQuestionsLoading] = useState(false);
+    const [serverQuestionsError, setServerQuestionsError] = useState(null);
 
-    const predefinedQuestions = [
-        '가장 기억에 남는 장면은 무엇인가요?',
-        '영화의 결말에 대해 어떻게 생각하시나요?',
-        '이 영화를 친구에게 추천하시겠어요?',
-        '영화를 보고 난 후 기분은 어땠나요?',
-        '이 영화의 메시지는 무엇이라고 생각하시나요?'
-    ];
+    // Questions are seeded on the backend (see prisma seeds). Use server-provided
+    // questions only; do not fall back to a local list so the modal reflects the
+    // canonical questions defined in `prisma/seeds/questions.sql`.
 
     const handleAddQuestion = () => {
         setShowQuestionModal(true);
     };
 
     const handleSelectQuestion = (selectedQuestion) => {
+        // `selectedQuestion` may be a string (legacy) or an object from server
+        // `{ id, content }`. Preserve server question id when available so the
+        // frontend can send `question_id` in the post payload and the backend
+        // will store answers properly in the answers table.
+        const isObj = selectedQuestion && typeof selectedQuestion === 'object';
         const newQuestion = {
             id: Date.now(),
-            question: selectedQuestion,
-            placeholder: selectedQuestion,
+            question: isObj ? selectedQuestion.content : selectedQuestion,
+            placeholder: isObj ? selectedQuestion.content : selectedQuestion,
             answer: '',
-            showEmojiPicker: false
+            showEmojiPicker: false,
+            // only include question_id when we have one from the server
+            ...(isObj ? { question_id: selectedQuestion.id } : {}),
         };
         const fixedQuestion = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
         const otherQuestions = questions.filter(q => q.question !== '자유롭게 이야기를 들려주세요!');
@@ -65,28 +71,39 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     };
 
     const getAvailableQuestions = () => {
-        const source = (serverQuestions && serverQuestions.length) ? serverQuestions.map(s => s.question) : predefinedQuestions;
-        return source.filter(
-            q => !questions.some(existing => existing.question === q)
-        );
+        // Always use server-seeded questions. The backend endpoint returns
+        // objects: { id, content } and we preserve the id so answers can be
+        // stored against the questions table.
+        if (serverQuestions && serverQuestions.length) {
+            return serverQuestions.filter(s => !questions.some(q => q.question === s.content));
+        }
+        // If no server questions are available (shouldn't happen in a seeded DB),
+        // return an empty array so the UI indicates there are no available items.
+        return [];
+    };
+
+    // fetchQuestions is used on mount and also passed to the modal for retry
+    const fetchQuestions = async () => {
+        let mounted = true; // local guard for this invocation
+        setServerQuestionsLoading(true);
+        setServerQuestionsError(null);
+        try {
+            const data = await getQuestions();
+            if (!mounted) return;
+            if (Array.isArray(data)) setServerQuestions(data);
+            else setServerQuestions([]);
+        } catch (e) {
+            console.error('Failed to load questions:', e);
+            setServerQuestionsError(String(e));
+        } finally {
+            setServerQuestionsLoading(false);
+        }
     };
 
     useEffect(() => {
         let mounted = true;
-        (async () => {
-            try {
-                const res = await fetch('/api/v1/questions/');
-                if (!res.ok) return;
-                const data = await res.json();
-                // data expected to be array of { id, question }
-                if (!mounted) return;
-                if (Array.isArray(data)) {
-                    setServerQuestions(data);
-                }
-            } catch (e) {
-                // ignore and fall back to predefined
-            }
-        })();
+        // call fetchQuestions (it updates state via setServerQuestions...)
+        fetchQuestions();
         return () => { mounted = false };
     }, []);
 
@@ -113,7 +130,10 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
             emojis_id: selectedEmojiId,
             visibility: mapPrivacy(privacy),
             spoiler: !!hasSpoiler,
-            answers: [],
+            // include only answers that map to real question ids (seeded questions)
+            answers: questions
+                .filter(q => q.answer && q.answer.trim() !== '' && q.question_id)
+                .map(q => ({ question_id: q.question_id, answer: q.answer })),
             medias: [],
         };
 
@@ -361,6 +381,9 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                 onClose={() => setShowQuestionModal(false)}
                 onSelectQuestion={handleSelectQuestion}
                 availableQuestions={getAvailableQuestions()}
+                isLoading={serverQuestionsLoading}
+                error={serverQuestionsError}
+                onRetry={fetchQuestions}
             />
         </div>
     );

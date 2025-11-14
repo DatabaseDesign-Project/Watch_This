@@ -41,7 +41,9 @@ _QREDIS_KEY = "questions:ids"
 _QREDIS_TTL_SEC = 86400
 
 async def _load_questions_from_db() -> Set[int]:
-    rows = await db.questions.find_many(select={"id": True})
+    # Prisma Python client's find_many doesn't accept `select` in this usage
+    # so fetch rows and extract ids manually.
+    rows = await db.questions.find_many()
     return {int(r.id) for r in rows}
 
 async def _get_question_id_set() -> Set[int]:
@@ -79,7 +81,6 @@ async def _get_question_id_set() -> Set[int]:
 async def _ensure_valid_question_ids(qids: List[int]) -> None:
     if not qids:
         return
-    valid = await _get_question_id_set
     valid = await _get_question_id_set()
     invalid = [qid for qid in qids if qid not in valid]
     if invalid:
