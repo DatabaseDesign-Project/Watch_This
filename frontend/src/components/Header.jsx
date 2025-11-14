@@ -5,7 +5,8 @@ export default function Header({
     showBackButton = false, 
     onBackClick, 
     showLogo = false,
-    variant = 'default' // 'default', 'home', 'search'
+    variant = 'default', // 'default', 'home', 'search'
+    rightAction = null
 }) {
     const getHeaderClass = () => {
         switch (variant) {
@@ -55,12 +56,21 @@ export default function Header({
                         )}
                         {title}
                     </div>
-                    <div></div> {/* 홈 화면의 오른쪽 공간 */}
+                    <div className="header-right-action">
+                        {rightAction}
+                    </div>
                 </>
             ) : (
-                <h1 className={getTitleClass()}>
-                    {title}
-                </h1>
+                <>
+                    <h1 className={getTitleClass()}>
+                        {title}
+                    </h1>
+                    {rightAction && (
+                        <div className="header-right-action">
+                            {rightAction}
+                        </div>
+                    )}
+                </>
             )}
         </header>
     );

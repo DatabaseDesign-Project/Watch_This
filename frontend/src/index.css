@@ -119,7 +119,6 @@ html, body, #root {
   background-color: var(--background-color);
   display: flex;
   flex-direction: column;
-  padding-bottom: 20px;
 }
 
 .content-container {
@@ -1646,4 +1645,148 @@ html, body, #root {
   font-weight: 400;
   color: var(--btn-color-Ghost);
   margin: 0;
+}
+
+/* ============================================
+   프로필 페이지 스타일
+   ============================================ */
+
+/* 프로필 콘텐츠 영역 */
+.profile-content {
+  padding: 20px 24px 80px 24px;
+}
+
+/* 프로필 카드 */
+.profile-card {
+  background-color: var(--color-secondary);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 프로필 아바타 */
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 16px;
+  position: relative;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-initial {
+  color: var(--color-secondary);
+  font-size: 36px;
+  font-weight: 600;
+  font-family: 'Pretendard', sans-serif;
+}
+
+/* 프로필 정보 */
+.profile-name {
+  margin: 0 0 8px 0;
+}
+
+.profile-email {
+  margin: 0 0 20px 0;
+}
+
+/* 프로필 액션 버튼들 */
+.profile-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.friends-button {
+  min-width: 80px;
+}
+
+/* 포스트 섹션 */
+.posts-section {
+  margin-bottom: 24px;
+}
+
+.posts-title {
+  margin: 0 0 16px 0;
+  padding: 0 4px;
+}
+
+.posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-posts {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+/* 헤더 오른쪽 액션 버튼 */
+.header-right-action {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* 헤더 액션 버튼들 */
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 프로필 편집 모달 */
+.edit-profile-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.edit-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* 로딩 및 에러 상태 */
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  gap: 16px;
 }
