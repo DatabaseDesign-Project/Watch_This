@@ -199,6 +199,64 @@ async def movie_detail(tmdb_id: int, rds: Optional[aioredis.Redis] = Depends(get
 
 from app.services.visibility import build_visibility_or
 
+from datetime import datetime as _dt
+
+async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Redis]) -> int:
+    """
+    Ensure a movies row exists for the given TMDB id by querying TMDB movie detail
+    and creating a `movies` row if none matches title+release_date. Returns DB movie id.
+    """
+    # try to fetch TMDB details (reuse movie_detail caching if available)
+    try:
+        # call TMDB detail endpoint (similar to movie_detail)
+        url = f"{TMDB}/movie/{tmdb_id}"
+        kwargs = auth_kwargs()
+        params = kwargs.pop("params", {})
+        headers = kwargs.pop("headers", {})
+        merged_params = {**params, "append_to_response": "credits,release_dates", "language": "ko-KR"}
+        async with httpx.AsyncClient(timeout=10) as c:
+            resp = await c.get(url, params=merged_params, headers=headers, **kwargs)
+            resp.raise_for_status()
+            tmdb = resp.json()
+    except Exception as e:
+        # bubble up as HTTPException to caller
+        raise HTTPException(status_code=504, detail=f"TMDB 요청 실패: {e}")
+
+    title = tmdb.get("title") or tmdb.get("original_title") or "제목 없음"
+    rd = tmdb.get("release_date") or None
+    try:
+        if rd and isinstance(rd, str) and rd:
+            release_dt = _dt.strptime(rd, "%Y-%m-%d")
+        else:
+            release_dt = _dt.utcnow()
+    except Exception:
+        release_dt = _dt.utcnow()
+
+    # try to find by title + release_date
+    existing = await db.movies.find_first(where={"title": title, "release_date": release_dt})
+    if existing:
+        return int(existing.id)
+
+    # create movie
+    poster_path = tmdb.get("poster_path")
+    poster = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+    director = None
+    for cobj in (tmdb.get("credits", {}).get("crew") or []):
+        if cobj.get("job") == "Director":
+            director = cobj.get("name")
+            break
+
+    mv = await db.movies.create(
+        data={
+            "title": title,
+            "original_title": tmdb.get("original_title") or title,
+            "release_date": release_dt,
+            "director": director or "",
+            "runtime_minutes": int(tmdb.get("runtime") or 0),
+            "poster_image": poster,
+        }
+    )
+    return int(mv.id)
 @router.get("/{movie_id}/posts")
 async def list_movie_posts_proxy(
     movie_id: int = Path(..., ge=1),
@@ -219,6 +277,45 @@ async def list_movie_posts_proxy(
     or_clauses = await build_visibility_or(current_user_id)
 
     where_clause: Dict[str, Any] = {"AND": [{"movie_id": movie_id}, {"OR": or_clauses}]}
+    if emoji_id is not None:
+        where_clause = {"AND": [where_clause, {"emojis_id": emoji_id}]}
+    if spoiler == "hide":
+        where_clause = {"AND": [where_clause, {"has_spoiler": False}]}
+    if cursor_id:
+        where_clause = {"AND": [where_clause, {"post_id": {"lt": cursor_id}}]}
+
+    order = [{"created_at": "desc"}, {"post_id": "desc"}] if sort == "recent" else [{"like_cnt": "desc"}, {"post_id": "desc"}]
+
+    rows = await db.posts.find_many(
+        where=where_clause,
+        order=order,
+        take=limit,
+        include={"user": True, "emoji": True},
+    )
+    return rows
+
+
+@router.get("/tmdb/{tmdb_id}/posts")
+async def list_movie_posts_by_tmdb(
+    tmdb_id: int = Path(..., ge=1),
+    emoji_id: Optional[int] = Query(default=None),
+    spoiler: str = Query("show", pattern="^(show|hide)$"),
+    sort: str = Query("recent", pattern="^(recent|likes)$"),
+    limit: int = Query(20, ge=1, le=100),
+    cursor_id: Optional[int] = Query(default=None),
+    current_user_id: int = Depends(get_current_user_id),
+    rds: Optional[aioredis.Redis] = Depends(get_redis),
+):
+    """
+    TMDB id 기반으로 DB movie row를 보장한 뒤 영화별 게시글을 반환합니다.
+    이 엔드포인트는 TMDB id로 검색된 결과에서도 관련 게시글을 즉시 볼 수 있게 해줍니다.
+    """
+    # ensure movie exists in DB (create if missing)
+    movie_db_id = await _resolve_or_import_movie_to_db(tmdb_id, rds)
+
+    or_clauses = await build_visibility_or(current_user_id)
+
+    where_clause: Dict[str, Any] = {"AND": [{"movie_id": movie_db_id}, {"OR": or_clauses}]}
     if emoji_id is not None:
         where_clause = {"AND": [where_clause, {"emojis_id": emoji_id}]}
     if spoiler == "hide":

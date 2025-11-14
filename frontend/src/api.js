@@ -182,6 +182,30 @@ export async function getQuestions({ q = undefined, limit = 50, offset = 0, orde
   return jfetch(`/v1/questions${qstr}`);
 }
 
+// GET /api/movies/{movie_id}/posts
+export async function getMoviePosts(movieId, { emoji_id = undefined, spoiler = 'show', sort = 'recent', limit = 20, cursor_id = undefined } = {}) {
+  const qs = [];
+  if (emoji_id !== undefined) qs.push(`emoji_id=${encodeURIComponent(emoji_id)}`);
+  if (spoiler) qs.push(`spoiler=${encodeURIComponent(spoiler)}`);
+  if (sort) qs.push(`sort=${encodeURIComponent(sort)}`);
+  if (limit) qs.push(`limit=${encodeURIComponent(limit)}`);
+  if (cursor_id) qs.push(`cursor_id=${encodeURIComponent(cursor_id)}`);
+  const q = qs.length ? `?${qs.join('&')}` : '';
+  return jfetch(`/movies/${movieId}/posts${q}`);
+}
+
+// GET /api/movies/tmdb/{tmdb_id}/posts
+export async function getMoviePostsByTmdb(tmdbId, { emoji_id = undefined, spoiler = 'show', sort = 'recent', limit = 20, cursor_id = undefined } = {}) {
+  const qs = [];
+  if (emoji_id !== undefined) qs.push(`emoji_id=${encodeURIComponent(emoji_id)}`);
+  if (spoiler) qs.push(`spoiler=${encodeURIComponent(spoiler)}`);
+  if (sort) qs.push(`sort=${encodeURIComponent(sort)}`);
+  if (limit) qs.push(`limit=${encodeURIComponent(limit)}`);
+  if (cursor_id) qs.push(`cursor_id=${encodeURIComponent(cursor_id)}`);
+  const q = qs.length ? `?${qs.join('&')}` : '';
+  return jfetch(`/movies/tmdb/${tmdbId}/posts${q}`);
+}
+
 export async function markNotificationRead(notiId) {
   return jfetch(`/v1/notifications/${notiId}/read`, { method: 'PATCH' });
 }

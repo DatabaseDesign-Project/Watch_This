@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import '../index.css';
 import { MobileStatusBar } from '../components/MobileStatusBar';
 import BottomNavigation from '../components/BottomNavigation';
 import Header from '../components/Header';
 import { Button } from '../components/Button';
+import MovieCard from '../components/MovieCard';
+import PostCard from '../components/PostCard';
+import MovieDetail from '../components/MovieDetail';
+import PostWriting from '../components/PostWriting';
+import { getMoviePostsByTmdb } from '../api';
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -12,6 +17,15 @@ const Search = () => {
     '스파이더맨',
     '인터스텔라'
   ]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedMoviePosts, setSelectedMoviePosts] = useState([]);
+  const [loadingMoviePosts, setLoadingMoviePosts] = useState(false);
+  const [showPostWriting, setShowPostWriting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const debounceRef = useRef(null);
 
   // 인기 작품 데이터
   const popularMovies = [
@@ -63,17 +77,51 @@ const Search = () => {
     }
   ];
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      // 검색 기록에 추가
-      if (!searchHistory.includes(searchQuery)) {
-        setSearchHistory([searchQuery, ...searchHistory]);
-      }
-      console.log('검색:', searchQuery);
-      // 검색 로직 구현
-    }
+    const q = searchQuery.trim();
+    if (!q) return;
+    // run immediate (on submit)
+    await searchMovies(q);
   };
+
+  async function searchMovies(q) {
+    if (!q) return;
+    // add to history
+    if (!searchHistory.includes(q)) setSearchHistory([q, ...searchHistory]);
+
+    setHasSearched(true);
+    setSearchResults([]);
+    setSelectedMovie(null);
+    setSelectedMoviePosts([]);
+
+    try {
+      const url = new URL('/api/movies/search', window.location.origin);
+      url.searchParams.set('q', q);
+      url.searchParams.set('page', '1');
+
+      setLoading(true);
+      setError('');
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || '검색 API 실패');
+      }
+      const data = await res.json();
+      const items = Array.isArray(data?.results) ? data.results : [];
+      setSearchResults(items);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || '검색 중 문제가 발생했습니다.');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleClearSearch = () => {
     setSearchQuery('');
@@ -91,6 +139,43 @@ const Search = () => {
   const handleClearAllHistory = () => {
     setSearchHistory([]);
   };
+
+  const handleMovieSelect = async (movie) => {
+    console.log('handleMovieSelect called with movie:', movie);
+    // set selected movie and try to load related posts (may be empty if movie not imported in DB)
+    setSelectedMovie(movie);
+    setSelectedMoviePosts([]);
+    setLoadingMoviePosts(true);
+    try {
+      const posts = await getMoviePostsByTmdb(movie.id, { limit: 10 });
+      setSelectedMoviePosts(Array.isArray(posts) ? posts : []);
+    } catch (e) {
+      console.error('failed to load movie posts', e);
+      setSelectedMoviePosts([]);
+    } finally {
+      setLoadingMoviePosts(false);
+    }
+  };
+
+  // debounced live search as user types (300ms)
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      // clear search view
+      clearTimeout(debounceRef.current);
+      setHasSearched(false);
+      setSearchResults([]);
+      setSelectedMovie(null);
+      return;
+    }
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      searchMovies(q);
+    }, 300);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery]);
 
   return (
     <div className="fullscreen">
@@ -133,83 +218,97 @@ const Search = () => {
               </form>
             </div>
 
-            {/* 검색어 입력 중일 때: 검색 기록만 표시 */}
-            {searchQuery ? (
-            searchHistory.length > 0 && (
-              <div className="search-history-section">
-                <div className="search-history-header">
-                  <h2 className="search-history-title text-base font-semibold font-pretendard text-primary">최근 검색어</h2>
-                  <Button variant="text" className="clear-all-button" onClick={handleClearAllHistory}>
-                    전체 삭제
-                  </Button>
-                </div>
-                <ul className="search-history-list">
-                  {searchHistory.map((query, index) => (
-                    <li key={index} className="search-history-item">
-                      <Button
-                        variant="ghost"
-                        className="history-query text-md font-pretendard text-primary"
-                        onClick={() => handleHistoryClick(query)}
-                      >
-                        {query}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="btn-ghost delete-history-button"
-                        onClick={() => handleDeleteHistory(query)}
-                      >
-                        <svg className="delete-icon" viewBox="0 0 10 10" fill="none">
-                          <path d="M1 1L9 9M1 9L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          ) : (
-            <>
-              {/* 검색어가 없을 때: 인기 작품 & 후기 많은 작품 표시 */}
-              <section className="search-movie-section">
-                <h2 className="search-section-title text-md font-bold font-inter text-primary">인기 작품</h2>
-                <div className="search-movie-list">
-                  {popularMovies.map((movie) => (
-                    <div key={movie.id} className="search-movie-card">
-                      <div
-                        className="search-movie-poster"
-                        style={{
-                          backgroundImage: `url(${movie.image})`,
-                        }}
-                      />
-                      <div className="search-movie-info">
-                        <h3 className="search-movie-title">{movie.title}</h3>
-                        <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+            {/* 검색 결과: 검색을 실행한 경우 TMDB 검색 결과와 선택한 영화의 관련 포스트를 표시합니다 */}
+            {hasSearched ? (
+              <div className="search-results">
+                {error && (
+                  <div className="search-placeholder">
+                    <p>{error}</p>
+                  </div>
+                )}
 
-              <section className="search-movie-section">
-                <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
-                <div className="search-movie-list">
-                  {reviewedMovies.map((movie) => (
-                    <div key={movie.id} className="search-movie-card">
-                      <div
-                        className="search-movie-poster"
-                        style={{
-                          backgroundImage: `url(${movie.image})`,
-                        }}
-                      />
-                      <div className="search-movie-info">
-                        <h3 className="search-movie-title">{movie.title}</h3>
-                        <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
-                      </div>
+                {!error && searchResults.length > 0 ? (
+                  <>
+                    <div className="search-movie-list">
+                      {searchResults.map((movie) => (
+                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </section>
-            </>
+
+                    {selectedMovie && (
+                      showPostWriting ? (
+                        <PostWriting movie={selectedMovie} onBack={() => setShowPostWriting(false)} onSubmit={async (data) => {
+                          // after submit, reload posts
+                          setShowPostWriting(false);
+                          try {
+                            setLoadingMoviePosts(true);
+                            const posts = await getMoviePostsByTmdb(selectedMovie.id, { limit: 10 });
+                            setSelectedMoviePosts(Array.isArray(posts) ? posts : []);
+                          } catch (e) {
+                            console.error('reload after submit failed', e);
+                          } finally {
+                            setLoadingMoviePosts(false);
+                          }
+                        }} />
+                      ) : (
+                        // show detail in a fixed overlay so it's visually obvious
+                        <div className="movie-detail-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24 }}>
+                          <div style={{ width: '100%', maxWidth: 540, background: 'transparent' }}>
+                            <MovieDetail movie={selectedMovie} posts={selectedMoviePosts} loading={loadingMoviePosts} onBack={() => setSelectedMovie(null)} onWrite={() => setShowPostWriting(true)} />
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </>
+                ) : (
+                  <div className="search-placeholder">
+                    <p>{loading ? '검색 중…' : '검색 결과가 없습니다.'}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* 검색어가 없을 때: 인기 작품 & 후기 많은 작품 표시 */}
+                <section className="search-movie-section">
+                  <h2 className="search-section-title text-md font-bold font-inter text-primary">인기 작품</h2>
+                  <div className="search-movie-list">
+                    {popularMovies.map((movie) => (
+                      <div key={movie.id} className="search-movie-card">
+                        <div
+                          className="search-movie-poster"
+                          style={{
+                            backgroundImage: `url(${movie.image})`,
+                          }}
+                        />
+                        <div className="search-movie-info">
+                          <h3 className="search-movie-title">{movie.title}</h3>
+                          <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="search-movie-section">
+                  <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
+                  <div className="search-movie-list">
+                    {reviewedMovies.map((movie) => (
+                      <div key={movie.id} className="search-movie-card">
+                        <div
+                          className="search-movie-poster"
+                          style={{
+                            backgroundImage: `url(${movie.image})`,
+                          }}
+                        />
+                        <div className="search-movie-info">
+                          <h3 className="search-movie-title">{movie.title}</h3>
+                          <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
           </div>
 

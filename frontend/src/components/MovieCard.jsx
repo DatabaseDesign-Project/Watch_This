@@ -4,6 +4,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 export default function MovieCard({ movie, onSelect }) {
     const handleClick = () => {
         if (onSelect) {
+            console.log('MovieCard clicked:', movie);
             onSelect(movie);
         }
     };
