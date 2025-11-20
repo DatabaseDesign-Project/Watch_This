@@ -3,7 +3,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import QuestionAnswer from './QuestionAnswer';
 import PrivacySelector from './PrivacySelector';
 import QuestionModal from './QuestionModal';
-import { getQuestions } from '../api';
+import { getQuestions, createPost } from '../api';
 
 // MUI Rating & Icons
 import Rating from '@mui/material/Rating';
@@ -36,6 +36,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     const [serverQuestions, setServerQuestions] = useState([]);
     const [serverQuestionsLoading, setServerQuestionsLoading] = useState(false);
     const [serverQuestionsError, setServerQuestionsError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
     // Questions are seeded on the backend (see prisma seeds). Use server-provided
     // questions only; do not fall back to a local list so the modal reflects the
@@ -84,27 +85,37 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
 
     // fetchQuestions is used on mount and also passed to the modal for retry
     const fetchQuestions = async () => {
-        let mounted = true; // local guard for this invocation
         setServerQuestionsLoading(true);
         setServerQuestionsError(null);
         try {
             const data = await getQuestions();
-            if (!mounted) return;
-            if (Array.isArray(data)) setServerQuestions(data);
-            else setServerQuestions([]);
-        } catch (e) {
-            console.error('Failed to load questions:', e);
-            setServerQuestionsError(String(e));
+            if (Array.isArray(data)) {
+                setServerQuestions(data);
+                // if server has the canonical main question, attach its id to the main local question
+                setQuestions((prev) => {
+                    const mainIdx = prev.findIndex(q => q.question === '자유롭게 이야기를 들려주세요!');
+                    if (mainIdx === -1) return prev;
+                    const main = prev[mainIdx];
+                    const serverMain = data.find(s => s.content === '자유롭게 이야기를 들려주세요!');
+                    if (serverMain) {
+                        const updated = [...prev];
+                        updated[mainIdx] = { ...main, question_id: serverMain.id };
+                        return updated;
+                    }
+                    return prev;
+                });
+            } else setServerQuestions([]);
+        } catch (err) {
+            console.error('Failed to load questions:', err);
+            setServerQuestionsError(String(err));
         } finally {
             setServerQuestionsLoading(false);
         }
     };
 
     useEffect(() => {
-        let mounted = true;
         // call fetchQuestions (it updates state via setServerQuestions...)
         fetchQuestions();
-        return () => { mounted = false };
     }, []);
 
     const handleQuestionAnswerChange = (questionId, answer) => {
@@ -122,46 +133,38 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     };
 
     const handleSubmit = async () => {
-        // Build payload compatible with backend: either movie_id or tmdb_id
-        const payload = {
-            // do not hardcode user_id; backend will read X-User-Id header (dev mode)
-            tmdb_id: movie.id,
-            title: postTitle || `${movie.title} 감상`,
-            emojis_id: selectedEmojiId,
-            visibility: mapPrivacy(privacy),
-            spoiler: !!hasSpoiler,
-            // include only answers that map to real question ids (seeded questions)
-            answers: questions
-                .filter(q => q.answer && q.answer.trim() !== '' && q.question_id)
-                .map(q => ({ question_id: q.question_id, answer: q.answer })),
-            medias: [],
-        };
+        // ensure main question exists and has answer
+        const mainQ = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
+        const mainAnswer = mainQ?.answer?.trim() || '';
+        if (!mainAnswer) {
+            alert('자유롭게 이야기를 들려주세요! 항목에 내용을 입력해주세요.');
+            return;
+        }
+
+        setSubmitting(true);
 
         try {
-            const uid = localStorage.getItem('user_id') || '1';
-            const res = await fetch('/api/v1/posts/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // dev helper header so backend knows current user
-                    'X-User-Id': uid,
-                },
-                body: JSON.stringify(payload),
-            });
+            const payload = {
+                tmdb_id: movie.id,
+                title: postTitle || `${movie.title} 감상`,
+                rating: rating || undefined,
+                emojis_id: selectedEmojiId || undefined,
+                visibility: mapPrivacy(privacy),
+                spoiler: !!hasSpoiler,
+                answers: questions
+                    .filter(q => q.answer && q.answer.trim() !== '' && q.question_id)
+                    .map(q => ({ question_id: q.question_id, answer: q.answer })),
+                medias: [],
+            };
 
-            if (!res.ok) {
-                const txt = await res.text();
-                console.error('post create failed', res.status, txt);
-                alert('포스트 작성 실패: ' + (txt || res.status));
-                return;
-            }
-
-            const data = await res.json();
-            // notify parent to refresh feed
+            const data = await createPost(payload);
+            // call parent onSubmit with created post id or message
             onSubmit(data);
         } catch (e) {
             console.error(e);
-            alert('서버 통신 중 오류가 발생했습니다.');
+            alert('포스트 작성 중 오류가 발생했습니다.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -177,22 +180,20 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
 
     useEffect(() => {
         // load emojis from server
-        let mounted = true;
         (async () => {
             try {
                 const res = await fetch('/api/v1/emojis/');
                 if (!res.ok) return;
                 const data = await res.json();
-                if (!mounted) return;
                 setServerEmojis(Array.isArray(data) ? data : []);
-            } catch (e) {
+            } catch {
                 // ignore, will use fallback
             }
         })();
-        return () => { mounted = false };
     }, []);
 
-    const canSubmit = rating > 0 && questions.some(q => q.answer.trim() !== '');
+    const mainQ = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
+    const canSubmit = (mainQ?.answer && mainQ.answer.trim() !== '');
 
     return (
         <div className="post-writing-container">
@@ -298,6 +299,8 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                     ⊕ 질문 추가
                 </button>
 
+                {/* 첨부파일 UI 제거 — 미디어는 질문별로 별도 처리하도록 설계되어 있습니다 */}
+
                 {questions.map((question) => (
                     <QuestionAnswer
                         key={question.id}
@@ -363,9 +366,9 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                         <button 
                             className="submit-btn"
                             onClick={handleSubmit}
-                            disabled={!canSubmit}
+                            disabled={!canSubmit || submitting}
                         >
-                            작성 완료
+                            {submitting ? '작성 중…' : '작성 완료'}
                         </button>
                     </div>
                 </div>

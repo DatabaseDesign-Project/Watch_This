@@ -1,5 +1,8 @@
 DO $$
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM "questions" WHERE content = '자유롭게 이야기를 들려주세요!') THEN
+        INSERT INTO "questions"(content) VALUES ('자유롭게 이야기를 들려주세요!');
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM "questions" WHERE content = '내가 이 영화 속 캐릭터였다면 어떻게 행동했을까요?') THEN
         INSERT INTO "questions"(content) VALUES ('내가 이 영화 속 캐릭터였다면 어떻게 행동했을까요?');
     END IF;

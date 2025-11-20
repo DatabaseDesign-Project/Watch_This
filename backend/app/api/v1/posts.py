@@ -5,6 +5,7 @@ import json
 import httpx
 
 from fastapi import APIRouter, HTTPException, Path, Body, Depends, Header, Query
+from decimal import Decimal
 
 from app.db import db
 from app.routers import movies as tmdb_mod
@@ -176,9 +177,16 @@ async def create_post(payload: PostCreate, current_user_id: int = Depends(get_cu
     media_qids = [m.question_id for m in (payload.medias or []) if m.question_id is not None]
     await _ensure_valid_question_ids(answer_qids + media_qids)
 
+    # 기본 질문('자유롭게 이야기를 들려주세요!')이 서버에 존재하고, 답변이 포함되어 있는지 확인
+    main_question = await db.questions.find_first(where={"content": "자유롭게 이야기를 들려주세요!"})
+    if not main_question:
+        raise HTTPException(status_code=500, detail="서버에 기본 질문이 없습니다.")
+    if not any(a.question_id == int(main_question.id) for a in (payload.answers or [])):
+        raise HTTPException(status_code=400, detail="기본 질문인 '자유롭게 이야기를 들려주세요!'에 대한 답변이 필요합니다.")
+
     # 트랜잭션: 포스트 → 답변 → 미디어
     async with db.tx() as tx:
-        # 포스트 생성
+        # 포스트 생성 (body 컬럼 삭제됨 — 질문 답변은 answers 테이블에 저장됨)
         create_data = {
             "title": payload.title,
             "visibility": payload.visibility,
@@ -215,6 +223,30 @@ async def create_post(payload: PostCreate, current_user_id: int = Depends(get_cu
                         "file_path": m.file_path,
                     }
                 )
+        # rating 생성(선택)
+        if payload.rating is not None:
+            try:
+                # ratings has composite PK (user_id, movie_id)
+                # create; if exists, update
+                # Prisma python client doesn't have upsert in older versions; attempt create then update on conflict
+                rating_value = Decimal(str(payload.rating))
+                try:
+                    await tx.ratings.create(
+                        data={
+                            "user": {"connect": {"id": user_id_to_use}},
+                            "movie": {"connect": {"id": resolved_movie_id}},
+                            "rating": rating_value,
+                        }
+                    )
+                except Exception:
+                    # fallback: update existing rating
+                    await tx.ratings.update(
+                        where={"user_id_movie_id": {"user_id": user_id_to_use, "movie_id": resolved_movie_id}},
+                        data={"rating": rating_value},
+                    )
+            except Exception:
+                # do not fail the whole post creation for rating problems; log and continue
+                pass
 
     return {"message": "포스트 생성 완료", "post_id": new_post.post_id}
 

@@ -8,15 +8,11 @@ import MovieCard from '../components/MovieCard';
 import PostCard from '../components/PostCard';
 import MovieDetail from '../components/MovieDetail';
 import PostWriting from '../components/PostWriting';
-import { getMoviePostsByTmdb } from '../api';
+import { getMoviePostsByTmdb, getMovieHighlights, searchMoviesTmdb } from '../api';
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchHistory, setSearchHistory] = useState([
-    '어벤져스',
-    '스파이더맨',
-    '인터스텔라'
-  ]);
+  // search history UI removed for now
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -25,57 +21,29 @@ const Search = () => {
   const [showPostWriting, setShowPostWriting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [highlights, setHighlights] = useState({ popular: [], mostReviewed: [] });
+  const [highlightsLoading, setHighlightsLoading] = useState(true);
   const debounceRef = useRef(null);
 
-  // 인기 작품 데이터
-  const popularMovies = [
-    {
-      id: 1,
-      title: '모노노케 히메',
-      year: 2003,
-      genre: '애니메이션',
-      image: '/images/mononoke.jpg'
-    },
-    {
-      id: 2,
-      title: '스파이더맨: 노 웨이 홈',
-      year: 2021,
-      genre: '액션/SF',
-      image: '/images/spiderman.jpg'
-    },
-    {
-      id: 3,
-      title: 'F1 더 무비',
-      year: 2025,
-      genre: '스포츠/액션',
-      image: '/images/f1.jpg'
-    }
-  ];
-
-  // 후기 많은 작품 데이터
-  const reviewedMovies = [
-    {
-      id: 4,
-      title: '스파이더맨: 노 웨이 홈',
-      year: 2021,
-      genre: '액션/SF',
-      image: '/images/spiderman.jpg'
-    },
-    {
-      id: 5,
-      title: 'F1 더 무비',
-      year: 2025,
-      genre: '스포츠/액션',
-      image: '/images/f1.jpg'
-    },
-    {
-      id: 6,
-      title: '모노노케 히메',
-      year: 2003,
-      genre: '애니메이션',
-      image: '/images/mononoke.jpg'
-    }
-  ];
+  // Load highlights on component mount
+  useEffect(() => {
+    const loadHighlights = async () => {
+      setHighlightsLoading(true);
+      try {
+        const data = await getMovieHighlights();
+        setHighlights({
+          popular: data?.popular || [],
+          mostReviewed: data?.mostReviewed || []
+        });
+      } catch (e) {
+        console.error('Failed to load highlights:', e);
+        setHighlights({ popular: [], mostReviewed: [] });
+      } finally {
+        setHighlightsLoading(false);
+      }
+    };
+    loadHighlights();
+  }, []);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -87,8 +55,8 @@ const Search = () => {
 
   async function searchMovies(q) {
     if (!q) return;
-    // add to history
-    if (!searchHistory.includes(q)) setSearchHistory([q, ...searchHistory]);
+
+    // (history not tracked in UI currently)
 
     setHasSearched(true);
     setSearchResults([]);
@@ -96,22 +64,9 @@ const Search = () => {
     setSelectedMoviePosts([]);
 
     try {
-      const url = new URL('/api/movies/search', window.location.origin);
-      url.searchParams.set('q', q);
-      url.searchParams.set('page', '1');
-
       setLoading(true);
       setError('');
-      const res = await fetch(url.toString(), {
-        method: 'GET',
-        headers: { accept: 'application/json' },
-        credentials: 'same-origin',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || '검색 API 실패');
-      }
-      const data = await res.json();
+      const data = await searchMoviesTmdb(q, 1);
       const items = Array.isArray(data?.results) ? data.results : [];
       setSearchResults(items);
     } catch (e) {
@@ -127,18 +82,7 @@ const Search = () => {
     setSearchQuery('');
   };
 
-  const handleHistoryClick = (query) => {
-    setSearchQuery(query);
-    console.log('검색 기록 클릭:', query);
-  };
-
-  const handleDeleteHistory = (query) => {
-    setSearchHistory(searchHistory.filter(item => item !== query));
-  };
-
-  const handleClearAllHistory = () => {
-    setSearchHistory([]);
-  };
+  // (검색 기록 UI는 현재 렌더링되지 않음)
 
   const handleMovieSelect = async (movie) => {
     console.log('handleMovieSelect called with movie:', movie);
@@ -162,19 +106,21 @@ const Search = () => {
     const q = searchQuery.trim();
     if (!q) {
       // clear search view
-      clearTimeout(debounceRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       setHasSearched(false);
       setSearchResults([]);
       setSelectedMovie(null);
       return;
     }
 
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       searchMovies(q);
     }, 300);
 
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [searchQuery]);
 
   return (
@@ -237,7 +183,7 @@ const Search = () => {
 
                     {selectedMovie && (
                       showPostWriting ? (
-                        <PostWriting movie={selectedMovie} onBack={() => setShowPostWriting(false)} onSubmit={async (data) => {
+                        <PostWriting movie={selectedMovie} onBack={() => setShowPostWriting(false)} onSubmit={async () => {
                           // after submit, reload posts
                           setShowPostWriting(false);
                           try {
@@ -268,46 +214,28 @@ const Search = () => {
               </div>
             ) : (
               <>
-                {/* 검색어가 없을 때: 인기 작품 & 후기 많은 작품 표시 */}
-                <section className="search-movie-section">
-                  <h2 className="search-section-title text-md font-bold font-inter text-primary">인기 작품</h2>
-                  <div className="search-movie-list">
-                    {popularMovies.map((movie) => (
-                      <div key={movie.id} className="search-movie-card">
-                        <div
-                          className="search-movie-poster"
-                          style={{
-                            backgroundImage: `url(${movie.image})`,
-                          }}
-                        />
-                        <div className="search-movie-info">
-                          <h3 className="search-movie-title">{movie.title}</h3>
-                          <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                {/* 검색어가 없을 때: 하이라이트 영화(인기 작품 & 후기 많은 작품) 표시 */}
+                {!highlightsLoading && highlights.popular.length > 0 && (
+                  <section className="search-movie-section">
+                    <h2 className="search-section-title text-md font-bold font-inter text-primary">인기 작품</h2>
+                    <div className="search-movie-list">
+                      {highlights.popular.map((movie) => (
+                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-                <section className="search-movie-section">
-                  <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
-                  <div className="search-movie-list">
-                    {reviewedMovies.map((movie) => (
-                      <div key={movie.id} className="search-movie-card">
-                        <div
-                          className="search-movie-poster"
-                          style={{
-                            backgroundImage: `url(${movie.image})`,
-                          }}
-                        />
-                        <div className="search-movie-info">
-                          <h3 className="search-movie-title">{movie.title}</h3>
-                          <p className="search-movie-meta">{movie.year} | {movie.genre}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                {!highlightsLoading && highlights.mostReviewed.length > 0 && (
+                  <section className="search-movie-section">
+                    <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
+                    <div className="search-movie-list">
+                      {highlights.mostReviewed.map((movie) => (
+                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
+                      ))}
+                    </div>
+                  </section>
+                )}
               </>
             )}
           </div>

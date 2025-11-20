@@ -206,6 +206,23 @@ export async function getMoviePostsByTmdb(tmdbId, { emoji_id = undefined, spoile
   return jfetch(`/movies/tmdb/${tmdbId}/posts${q}`);
 }
 
+// GET /api/v1/movies/highlights → {popular, mostReviewed}
+export async function getMovieHighlights() {
+  // movies router is mounted at /api/movies on the backend
+  return jfetch('/movies/highlights');
+}
+
+// POST /api/v1/posts/ - create a post
+export async function createPost(payload) {
+  return jfetch('/v1/posts/', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+// GET /api/movies/search?q=...&page=1
+export async function searchMoviesTmdb(q, page = 1) {
+  const qs = `?q=${encodeURIComponent(q)}&page=${encodeURIComponent(page)}`;
+  return jfetch(`/movies/search${qs}`);
+}
+
 export async function markNotificationRead(notiId) {
   return jfetch(`/v1/notifications/${notiId}/read`, { method: 'PATCH' });
 }

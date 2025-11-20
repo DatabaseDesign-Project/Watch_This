@@ -18,6 +18,8 @@ class PostCreate(BaseModel):
     movie_id: Optional[int] = None
     tmdb_id: Optional[int] = None
     title: str = Field(..., max_length=150)
+    # optional rating the author gives to the movie; stored in ratings table
+    rating: Optional[float] = None
     emojis_id: Optional[int] = None
     visibility: str = Field("public")
     spoiler: bool = False
