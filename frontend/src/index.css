@@ -109,7 +109,6 @@ html, body, #root {
 .text-ghost { color: var(--btn-color-Ghost); }
 
 .font-pretendard { font-family: 'Pretendard', sans-serif; }
-.font-inter { font-family: 'Inter', 'Pretendard', sans-serif; }
 .font-neurimbo { font-family: 'Neurimbo Gothic', 'Pretendard', sans-serif; }
 
 /* 공통 컨테이너 레이아웃 */
@@ -638,12 +637,21 @@ html, body, #root {
   border: 1px solid #E9ECEF;
 }
 
+.movie-poster-wrap {
+  flex-shrink: 0;
+  width: 60px;
+  align-self: stretch;
+  position: relative;
+}
+
 .movie-poster {
-  width: 75px;
-  height: 100px;
+  width: 100%;
+  height: 100%;
   border-radius: 6px;
   object-fit: cover;
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .movie-info {
@@ -682,8 +690,9 @@ html, body, #root {
 
 .search-results {
   flex: 1;
-  padding: 0 12px 20px 20px;
-  max-height: calc(100vh - 200px); /* 검색 헤더와 입력창, 하단 네비게이션 높이 제외 */
+  padding: 0 12px 80px 20px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .search-results-title {
@@ -1224,7 +1233,7 @@ html, body, #root {
 /* 검색 입력 영역 */
 .search-input-wrapper {
   padding: 0 23px;
-  margin-bottom: 28px;
+  margin-bottom: 15px;
 }
 
 .search-form {
@@ -1392,49 +1401,116 @@ html, body, #root {
 }
 
 /* 영화 카드 */
+.search-movie-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding-bottom: 20px;
+}
+
+
+/* 카드 스타일 (검색 결과 / 추천 목록 공통) */
+.movie-card,
 .search-movie-card {
   display: flex;
-  gap: 18px;
-  align-items: flex-start;
+  gap: 12px;
+  align-items: stretch;
   cursor: pointer;
-  transition: opacity 0.2s;
+  background: var(--color-secondary);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(17,24,39,0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
+.movie-card:hover,
 .search-movie-card:hover {
-  opacity: 0.8;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(17,24,39,0.08);
+  opacity: 1;
 }
 
+.movie-poster-wrap{
+  position: relative;
+  width: 96px;
+  min-width: 96px;
+  display: flex;
+  align-items: stretch;
+}
+
+.movie-poster,
 .search-movie-poster {
-  width: 63px;
-  height: 90px;
-  background-color: #E0E0E0;
+  width: 96px;
+  height: 100%;
+  background-color: #EAEAEA;
   background-size: cover;
   background-position: center;
-  border-radius: 5px;
+  border-radius: 10px;
   flex-shrink: 0;
+  object-fit: cover;
+  display: block;
 }
 
+.rating-badge{
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  box-shadow: 0 4px 10px rgba(17,24,39,0.08);
+}
+
+.movie-info,
 .search-movie-info {
   flex: 1;
-  padding-top: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
+.movie-title,
 .search-movie-title {
-  font-family: 'Inter', 'Pretendard', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.92em;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
   color: var(--color-primary);
-  margin: 0 0 -5px 0;
+  margin: 0 0 8px 0;
 }
 
+.movie-overview {
+  font-family: 'Inter', 'Pretendard', sans-serif;
+  font-size: 13px;
+  color: var(--color-ghost);
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+  max-height: 3.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.movie-meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+.movie-detail,
 .search-movie-meta {
   font-family: 'Inter', 'Pretendard', sans-serif;
   font-size: 12px;
-  font-weight: 400;
-  line-height: 1.92em;
-  color: var(--color-primary);
+  color: var(--color-ghost);
   margin: 0;
+}
+
+.movie-detail br {
+  display: block;
+  content: '';
+  margin-bottom: 4px;
 }
 
 
@@ -1463,7 +1539,7 @@ html, body, #root {
 }
 
 .friend-request-banner-text {
-  font-family: 'Inter', 'Pretendard', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.21em;
@@ -1498,7 +1574,7 @@ html, body, #root {
 
 /* 댓글 알림 텍스트 */
 .notification-main-text {
-  font-family: 'Inter', 'Pretendard', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.21em;
@@ -1532,7 +1608,7 @@ html, body, #root {
 
 /* 댓글 메시지 */
 .notification-message {
-  font-family: 'Inter', 'Pretendard', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.21em;
