@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import '../index.css';
-import { MobileStatusBar } from '../components/MobileStatusBar';
-import { Button } from '../components/Button';
-import { getFriendRequests, acceptFriendRequest, rejectFriendRequest } from '../api';
+import '../../index.css';
+import { MobileStatusBar } from '../../components/MobileStatusBar';
+import { Button } from '../../components/Button';
+import { getFriendRequests, acceptFriendRequest, rejectFriendRequest } from '../../api';
 
 const FriendRequest = ({ onBack, onChanged }) => {
   const [friendRequests, setFriendRequests] = useState([]);

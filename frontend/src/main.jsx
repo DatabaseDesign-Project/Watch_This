@@ -2,17 +2,18 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
-import Home from "./pages/Home";
+import Home from "./pages/home/Home";
 
 // 프로필 / 설정
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import PasswordChange from "./pages/PasswordChange";
-import PrivacyDelete from "./pages/PrivacyDelete";
+import Profile from "./pages/mypage/Profile";
+import Settings from "./pages/mypage/Settings";
+import PasswordChange from "./pages/mypage/PasswordChange";
+import PrivacyDelete from "./pages/mypage/PrivacyDelete";
 
 // 검색 / 알림
-import Search from "./pages/Search";
-import Notification from "./pages/Notification";
+import Search from "./pages/search/Search";
+import Notification from "./pages/notification/Notification";
+import FriendRequest from "./pages/notification/FriendRequest";
 
 import "./index.css";
 
@@ -32,6 +33,7 @@ createRoot(document.getElementById("root")).render(
         {/* 검색 & 알림 */}
         <Route path="/search" element={<Search />} />
         <Route path="/notifications" element={<Notification />} />
+        <Route path="/friend-request" element={<FriendRequest />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import '../index.css';
-import { MobileStatusBar } from '../components/MobileStatusBar';
-import BottomNavigation from '../components/BottomNavigation';
+import '../../index.css';
+import { MobileStatusBar } from '../../components/MobileStatusBar';
+import BottomNavigation from '../../components/BottomNavigation';
 import FriendRequest from './FriendRequest';
-import Header from '../components/Header';
-import { Button } from '../components/Button';
-import { getNotifications, markNotificationRead, getFriendRequests } from '../api';
+import Header from '../../components/Header';
+import { Button } from '../../components/Button';
+import { getNotifications, markNotificationRead, getFriendRequests } from '../../api';
 
 const Notification = () => {
   const [showFriendRequest, setShowFriendRequest] = useState(false);

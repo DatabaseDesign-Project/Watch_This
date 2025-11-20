@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../index.css';
-import { MobileStatusBar } from '../components/MobileStatusBar';
-import BottomNavigation from '../components/BottomNavigation';
-import Header from '../components/Header';
-import { Button } from '../components/Button';
-import FriendsButton from '../components/FriendsButton';
-import PostCard from '../components/PostCard';
-import { getProfile, getUserPosts, getFriends } from '../api';
+import '../../index.css';
+import { MobileStatusBar } from '../../components/MobileStatusBar';
+import BottomNavigation from '../../components/BottomNavigation';
+import Header from '../../components/Header';
+import { Button } from '../../components/Button';
+import FriendsButton from '../../components/FriendsButton';
+import PostCard from '../../components/PostCard';
+import { getProfile, getUserPosts, getFriends } from '../../api';
 
 // =========================
 // ✨ 샘플 포스트 설정

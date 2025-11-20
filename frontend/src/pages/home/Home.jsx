@@ -1,13 +1,13 @@
 // /pages/Home.jsx
 import { useState, useEffect } from 'react';
-import '../index.css';
-import { MobileStatusBar } from '../components/MobileStatusBar';
-import Header from '../components/Header';
-import PostCard from '../components/PostCard';
-import BottomNavigation from '../components/BottomNavigation';
-import FloatingActionButton from '../components/FloatingActionButton';
-import MovieSearch from '../components/MovieSearch';
-import PostWriting from '../components/PostWriting';
+import '../../index.css';
+import { MobileStatusBar } from '../../components/MobileStatusBar';
+import Header from '../../components/Header';
+import PostCard from '../../components/PostCard';
+import BottomNavigation from '../../components/BottomNavigation';
+import FloatingActionButton from '../../components/FloatingActionButton';
+import MovieSearch from '../../components/MovieSearch';
+import PostWriting from '../../components/PostWriting';
 
 export default function App() {
     const [currentView, setCurrentView] = useState('feed'); // 'feed' | 'movieSearch' | 'postWriting'
