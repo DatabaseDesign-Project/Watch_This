@@ -80,7 +80,8 @@ def map_movie_brief(m: Dict[str, Any], genre_map: Dict[int, str], director_name:
         "title": m.get("title") or m.get("original_title"),
         "releaseDate": release_date,
         "genre": genre,
-        "rating": rating,
+        "rating": rating,              # TMDB 평점
+        "ratingAvg": rating,           # 호환 키
         "director": director_name or "감독 정보 없음",
         "poster": poster,
         "_raw": m,
@@ -323,131 +324,278 @@ async def list_movie_posts_by_tmdb(
     return rows
 
 # =========================================================
-# 🔽 하이라이트: TMDB 인기작 3 + 후기 많은 작품 3
+# 🔽 하이라이트: TMDB 인기작 3 + 후기 많은 작품 3 (평점키 통일 + 통합 캐시)
 # 경로: GET /api/v1/movies/highlights
 # =========================================================
 
-_POPULAR_CACHE_KEY = "tmdb:popular:koKR:top3"
-_POPULAR_TTL_SEC = 1800  # 30분
-_MOST_REVIEWED_CACHE_KEY = "movies:most_reviewed:top3"
-_MOST_REVIEWED_TTL_SEC = 600  # 10분
+_HIGHLIGHTS_CACHE_KEY = "movies:highlights:v3"  # 통합 캐시
+_HIGHLIGHTS_TTL_SEC = 1800  # 30분
+
+async def _genres_for_movies(movie_ids: List[int]) -> Dict[int, List[str]]:
+    if not movie_ids:
+        return {}
+    rows = await db.query_raw(
+        """
+        SELECT mg.movie_id AS movie_id, g.name AS name
+        FROM movie_genres mg
+        JOIN genres g ON g.id = mg.genre_id
+        WHERE mg.movie_id = ANY($1)
+        """,
+        movie_ids,
+    )
+    out: Dict[int, List[str]] = {}
+    for r in rows:
+        mid = int(r["movie_id"])
+        out.setdefault(mid, []).append(r["name"])
+    return out
+
+def _fmt_release_date(rel) -> str:
+    if hasattr(rel, "strftime"):
+        return rel.strftime("%Y.%m.%d")
+    try:
+        s = str(rel)
+        if "T" in s:
+            s = s.split("T", 1)[0]
+        return s.replace("-", ".")
+    except Exception:
+        return "개봉일 정보 없음"
+
+async def _backfill_with_likes(exclude_ids: Set[int], need: int) -> List[Dict[str, Any]]:
+    if need <= 0:
+        return []
+    like_rows = await db.query_raw(
+        """
+        SELECT p.movie_id AS movie_id, COUNT(l.user_id)::int AS like_cnt
+        FROM posts p
+        LEFT JOIN likes l ON l.post_id = p.post_id
+        GROUP BY p.movie_id
+        ORDER BY like_cnt DESC, p.movie_id DESC
+        LIMIT 10
+        """
+    )
+    picked: List[int] = []
+    for r in like_rows:
+        mid = int(r["movie_id"])
+        if mid in exclude_ids:
+            continue
+        picked.append(mid)
+        if len(picked) >= need:
+            break
+    if not picked:
+        return []
+    movies_rows = await db.movies.find_many(where={"id": {"in": picked}})
+    id_map = {int(m.id): m for m in movies_rows}
+    gen_map = await _genres_for_movies(picked)
+    out = []
+    for mid in picked:
+        mv = id_map.get(mid)
+        if not mv:
+            continue
+        out.append({
+            "id": mid,
+            "title": mv.title,
+            "original_title": mv.original_title,
+            "releaseDate": _fmt_release_date(mv.release_date),
+            "director": mv.director,
+            "poster": mv.poster_image,
+            "postCount": None,
+            "genre": ", ".join(gen_map.get(mid, [])) if gen_map.get(mid) else "장르 정보 없음",
+            "rating": None,
+            "ratingAvg": None,
+        })
+    return out
+
+async def _backfill_with_recent_posts(exclude_ids: Set[int], need: int) -> List[Dict[str, Any]]:
+    if need <= 0:
+        return []
+    recent_rows = await db.query_raw(
+        """
+        SELECT p.movie_id AS movie_id, MAX(p.created_at) AS last_ts
+        FROM posts p
+        GROUP BY p.movie_id
+        ORDER BY last_ts DESC, movie_id DESC
+        LIMIT 10
+        """
+    )
+    picked: List[int] = []
+    for r in recent_rows:
+        mid = int(r["movie_id"])
+        if mid in exclude_ids:
+            continue
+        picked.append(mid)
+        if len(picked) >= need:
+            break
+    if not picked:
+        return []
+    movies_rows = await db.movies.find_many(where={"id": {"in": picked}})
+    id_map = {int(m.id): m for m in movies_rows}
+    gen_map = await _genres_for_movies(picked)
+    out = []
+    for mid in picked:
+        mv = id_map.get(mid)
+        if not mv:
+            continue
+        out.append({
+            "id": mid,
+            "title": mv.title,
+            "original_title": mv.original_title,
+            "releaseDate": _fmt_release_date(mv.release_date),
+            "director": mv.director,
+            "poster": mv.poster_image,
+            "postCount": None,
+            "genre": ", ".join(gen_map.get(mid, [])) if gen_map.get(mid) else "장르 정보 없음",
+            "rating": None,
+            "ratingAvg": None,
+        })
+    return out
+
+async def _tmdb_popular_top_n(n: int, rds: Optional[aioredis.Redis]) -> List[Dict[str, Any]]:
+    genre_map = await get_genre_map(rds, lang="ko-KR")
+    url = f"{TMDB}/movie/popular"
+    kwargs = auth_kwargs()
+    params = kwargs.pop("params", {})
+    headers = kwargs.pop("headers", {})
+    merged_params = {**params, "language": "ko-KR", "page": "1"}
+    async with httpx.AsyncClient(timeout=10) as c:
+        resp = await c.get(url, params=merged_params, headers=headers, **kwargs)
+        resp.raise_for_status()
+        data = resp.json()
+    results = (data.get("results") or [])[:n]
+
+    async def fetch_director(mid: int) -> Optional[str]:
+        u = f"{TMDB}/movie/{mid}/credits"
+        k2 = auth_kwargs()
+        p2 = k2.pop("params", {})
+        h2 = k2.pop("headers", {})
+        merged = {**p2, "language": "ko-KR"}
+        try:
+            async with httpx.AsyncClient(timeout=10) as c2:
+                r = await c2.get(u, params=merged, headers=h2, **k2)
+                r.raise_for_status()
+                cred = r.json()
+                for cobj in cred.get("crew") or []:
+                    if cobj.get("job") == "Director":
+                        return cobj.get("name")
+        except Exception:
+            return None
+        return None
+
+    directors: List[Optional[str]] = await asyncio.gather(*[fetch_director(m["id"]) for m in results])
+    mapped = [map_movie_brief(m, genre_map, directors[idx]) for idx, m in enumerate(results)]
+    # popular 섹션 포맷을 mostReviewed와 맞춤
+    out = []
+    for m in mapped:
+        out.append({
+            "id": m["id"],
+            "title": m["title"],
+            "original_title": m["_raw"].get("original_title") or m["title"],
+            "releaseDate": m["releaseDate"],
+            "director": m["director"],
+            "poster": m["poster"],
+            "postCount": 0,
+            "genre": m["genre"],
+            "rating": m["rating"],       # 표준 키
+            "ratingAvg": m["rating"],    # 호환 키
+        })
+    return out
 
 @router.get("/highlights")
 async def movies_highlights(
     rds: Optional[aioredis.Redis] = Depends(get_redis),
 ):
-    """
-    popular: TMDB 인기작 상위 3개
-    mostReviewed: 우리 DB에서 후기(포스트) 많은 영화 상위 3개
-    """
+    # ---------- 통합 캐시 먼저 확인 ----------
+    if rds:
+        try:
+            cached = await rds.get(_HIGHLIGHTS_CACHE_KEY)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
     # ---------- popular (TMDB) ----------
-    popular_payload = None
-    if rds:
-        try:
-            cached = await rds.get(_POPULAR_CACHE_KEY)
-            if cached:
-                popular_payload = json.loads(cached)
-        except Exception:
-            pass
+    try:
+        popular = await _tmdb_popular_top_n(3, rds)
+    except Exception:
+        popular = []
 
-    if not popular_payload:
-        genre_map = await get_genre_map(rds, lang="ko-KR")
-        url = f"{TMDB}/movie/popular"
-        kwargs = auth_kwargs()
-        params = kwargs.pop("params", {})
-        headers = kwargs.pop("headers", {})
-        merged_params = {**params, "language": "ko-KR", "page": "1"}
+    # ---------- mostReviewed (DB, 장르/평점 포함 + 3개 보장) ----------
+    # 1) posts 기준 Top 3 + AVG(ratings)
+    agg_rows = await db.query_raw(
+        """
+        SELECT
+            m.id AS id,
+            m.title AS title,
+            m.original_title AS original_title,
+            m.release_date AS release_date,
+            m.director AS director,
+            m.poster_image AS poster,
+            COUNT(p.post_id)::int AS post_count,
+            ROUND(AVG(r.rating::numeric), 1) AS avg_rating
+        FROM movies m
+        JOIN posts p ON p.movie_id = m.id
+        LEFT JOIN ratings r ON r.movie_id = m.id
+        GROUP BY m.id
+        ORDER BY post_count DESC, m.id DESC
+        LIMIT 3
+        """
+    )
+    picked_ids: List[int] = [int(r["id"]) for r in agg_rows]
+    gen_map = await _genres_for_movies(picked_ids)
 
-        try:
-            async with httpx.AsyncClient(timeout=10) as c:
-                resp = await c.get(url, params=merged_params, headers=headers, **kwargs)
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=504, detail=f"TMDB 인기작 요청 실패: {str(e)}")
+    most: List[Dict[str, Any]] = []
+    for r in agg_rows:
+        mid = int(r["id"])
+        avg_val = r["avg_rating"]
+        rating_avg = float(avg_val) if avg_val is not None else None
+        most.append({
+            "id": mid,
+            "title": r["title"],
+            "original_title": r["original_title"],
+            "releaseDate": _fmt_release_date(r["release_date"]),
+            "director": r["director"],
+            "poster": r["poster"],
+            "postCount": int(r["post_count"]),
+            "genre": ", ".join(gen_map.get(mid, [])) if gen_map.get(mid) else "장르 정보 없음",
+            "rating": rating_avg,      # 표준 키
+            "ratingAvg": rating_avg,   # 호환 키
+        })
 
-        results = (data.get("results") or [])[:3]
+    # 2) 부족 시 likes 순 보강
+    remain = 3 - len(most)
+    exclude = set(picked_ids)
+    if remain > 0:
+        liked_fill = await _backfill_with_likes(exclude, remain)
+        most.extend(liked_fill)
+        exclude.update([x["id"] for x in liked_fill])
 
-        async def fetch_director(mid: int) -> Optional[str]:
-            u = f"{TMDB}/movie/{mid}/credits"
-            k2 = auth_kwargs()
-            p2 = k2.pop("params", {})
-            h2 = k2.pop("headers", {})
-            merged = {**p2, "language": "ko-KR"}
-            try:
-                async with httpx.AsyncClient(timeout=10) as c:
-                    r = await c.get(u, params=merged, headers=h2, **k2)
-                    r.raise_for_status()
-                    cred = r.json()
-                    for cobj in cred.get("crew") or []:
-                        if cobj.get("job") == "Director":
-                            return cobj.get("name")
-            except Exception:
-                return None
-            return None
+    # 3) 그래도 부족 시 최근 포스트 기준 보강
+    remain = 3 - len(most)
+    if remain > 0:
+        recent_fill = await _backfill_with_recent_posts(exclude, remain)
+        most.extend(recent_fill)
+        exclude.update([x["id"] for x in recent_fill])
 
-        directors: List[Optional[str]] = await asyncio.gather(*[fetch_director(m["id"]) for m in results])
-        popular_payload = [map_movie_brief(m, genre_map, directors[idx]) for idx, m in enumerate(results)]
-
-        if rds:
-            try:
-                await rds.setex(_POPULAR_CACHE_KEY, _POPULAR_TTL_SEC, json.dumps(popular_payload))
-            except Exception:
-                pass
-
-    # ---------- mostReviewed (DB) ----------
-    most_payload = None
-    if rds:
-        try:
-            cached = await rds.get(_MOST_REVIEWED_CACHE_KEY)
-            if cached:
-                most_payload = json.loads(cached)
-        except Exception:
-            pass
-
-    if not most_payload:
-        # posts에서 movie_id별 count 상위 3개
-        # Prisma Python의 raw 쿼리 사용
-        rows = await db.query_raw(
-            "SELECT movie_id, COUNT(*) AS cnt FROM posts GROUP BY movie_id ORDER BY cnt DESC LIMIT 3"
-        )
-        movie_ids = [int(r["movie_id"]) for r in rows]
-        counts = {int(r["movie_id"]): int(r["cnt"]) for r in rows}
-
-        movies_rows = []
-        if movie_ids:
-            # 다건 조회
-            movies_rows = await db.movies.find_many(
-                where={"id": {"in": movie_ids}}
-            )
-
-        # id 순서 보존을 위해 movie_ids 기준으로 재정렬
-        id_to_row = {int(m.id): m for m in movies_rows}
-        most_payload = []
-        for mid in movie_ids:
-            mv = id_to_row.get(mid)
-            if not mv:
-                # 방어: 누락 시 스킵
+    # 4) 그래도 부족하면 TMDB popular에서 차용(중복 제거)
+    remain = 3 - len(most)
+    if remain > 0 and popular:
+        used = set([m["id"] for m in most])
+        for item in popular:
+            if item["id"] in used:
                 continue
-            most_payload.append({
-                "id": int(mv.id),
-                "title": mv.title,
-                "original_title": mv.original_title,
-                "releaseDate": mv.release_date.strftime("%Y.%m.%d"),
-                "director": mv.director,
-                "poster": mv.poster_image,
-                "postCount": counts.get(mid, 0),
-            })
+            most.append(item)
+            if len(most) >= 3:
+                break
 
-        if rds:
-            try:
-                await rds.setex(_MOST_REVIEWED_CACHE_KEY, _MOST_REVIEWED_TTL_SEC, json.dumps(most_payload))
-            except Exception:
-                pass
-
-    return {
-        "popular": popular_payload or [],
-        "mostReviewed": most_payload or [],
+    payload = {
+        "popular": popular[:3],
+        "mostReviewed": most[:3],
     }
+
+    # ---------- 통합 캐시 저장 ----------
+    if rds:
+        try:
+            await rds.setex(_HIGHLIGHTS_CACHE_KEY, _HIGHLIGHTS_TTL_SEC, json.dumps(payload))
+        except Exception:
+            pass
+
+    return payload
