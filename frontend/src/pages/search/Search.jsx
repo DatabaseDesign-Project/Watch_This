@@ -1,14 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import '../index.css';
-import { MobileStatusBar } from '../components/MobileStatusBar';
-import BottomNavigation from '../components/BottomNavigation';
-import Header from '../components/Header';
-import { Button } from '../components/Button';
-import MovieCard from '../components/MovieCard';
-import PostCard from '../components/PostCard';
-import MovieDetail from '../components/MovieDetail';
-import PostWriting from '../components/PostWriting';
-import { getMoviePostsByTmdb, getMovieHighlights, searchMoviesTmdb } from '../api';
 import { useNavigate } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
@@ -16,6 +6,7 @@ import BottomNavigation from '../../components/BottomNavigation';
 import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import MovieCard from '../../components/MovieCard';
+import { getMovieHighlights, searchMoviesTmdb } from '../../api';
 
 const Search = () => {
   const navigate = useNavigate();
@@ -153,7 +144,7 @@ const Search = () => {
               </form>
             </div>
 
-            {/* 검색 결과: 검색을 실행한 경우 TMDB 검색 결과와 선택한 영화의 관련 포스트를 표시합니다 */}
+            {/* 검색 결과: 검색을 실행한 경우 TMDB 검색 결과를 표시합니다 */}
             {hasSearched ? (
               <div className="search-results">
                 {error && (
@@ -163,38 +154,11 @@ const Search = () => {
                 )}
 
                 {!error && searchResults.length > 0 ? (
-                  <>
-                    <div className="search-movie-list">
-                      {searchResults.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
-                      ))}
-                    </div>
-
-                    {selectedMovie && (
-                      showPostWriting ? (
-                        <PostWriting movie={selectedMovie} onBack={() => setShowPostWriting(false)} onSubmit={async () => {
-                          // after submit, reload posts
-                          setShowPostWriting(false);
-                          try {
-                            setLoadingMoviePosts(true);
-                            const posts = await getMoviePostsByTmdb(selectedMovie.id, { limit: 10 });
-                            setSelectedMoviePosts(Array.isArray(posts) ? posts : []);
-                          } catch (e) {
-                            console.error('reload after submit failed', e);
-                          } finally {
-                            setLoadingMoviePosts(false);
-                          }
-                        }} />
-                      ) : (
-                        // show detail in a fixed overlay so it's visually obvious
-                        <div className="movie-detail-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24 }}>
-                          <div style={{ width: '100%', maxWidth: 540, background: 'transparent' }}>
-                            <MovieDetail movie={selectedMovie} posts={selectedMoviePosts} loading={loadingMoviePosts} onBack={() => setSelectedMovie(null)} onWrite={() => setShowPostWriting(true)} />
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </>
+                  <div className="search-movie-list">
+                    {searchResults.map((movie) => (
+                      <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
+                    ))}
+                  </div>
                 ) : (
                   <div className="search-placeholder">
                     <p>{loading ? '검색 중…' : '검색 결과가 없습니다.'}</p>
