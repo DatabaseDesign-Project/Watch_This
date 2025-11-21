@@ -292,7 +292,7 @@ async def feed(
         where=where_clause,
         order=[{"created_at": "desc"}, {"post_id": "desc"}],
         take=limit,
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True,  "movie": True },
     )
     return posts
 
@@ -307,7 +307,7 @@ async def get_post(
 ):
     post = await db.posts.find_unique(
         where={"post_id": post_id},
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
     )
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
