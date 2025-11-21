@@ -1377,7 +1377,7 @@ html, body, #root {
 /* 영화 섹션 */
 .search-movie-section {
   margin-bottom: 30px;
-  padding: 0 32px;
+  padding: 0 12px 0 20px;
 }
 
 .search-movie-section:last-of-type {
@@ -1397,15 +1397,7 @@ html, body, #root {
 .search-movie-list {
   display: flex;
   flex-direction: column;
-  gap: 13px;
-}
-
-/* 영화 카드 */
-.search-movie-list {
-  display: grid;
-  grid-template-columns: 1fr;
   gap: 12px;
-  padding-bottom: 20px;
 }
 
 
