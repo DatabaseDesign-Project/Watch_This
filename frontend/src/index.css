@@ -1779,6 +1779,12 @@ html, body, #root {
   padding: 0 24px;
 }
 
+.notification-empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--color-secondary);
+}
+
 .notification-item {
   cursor: pointer;
   transition: background-color 0.2s;

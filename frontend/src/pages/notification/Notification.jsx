@@ -85,53 +85,57 @@ const Notification = () => {
           <Header title="이거봤어" variant="search" />
 
           {/* 친구 신청 배너 */}
-          {friendRequestCount > 0 && (
-            <Button
-              variant="outline"
-              className="friend-request-banner"
-              onClick={handleFriendRequestClick}
-            >
-              <span className="friend-request-banner-text">
-                친구 신청 {friendRequestCount}명
-              </span>
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            className="friend-request-banner"
+            onClick={handleFriendRequestClick}
+          >
+            <span className="friend-request-banner-text">
+              친구 신청 {friendRequestCount > 0 ? `${friendRequestCount}명` : '0명'}
+            </span>
+          </Button>
 
           {/* 알림 목록 */}
           <div className="notification-list">
-            {notifications.map((notification) => {
-              const senderName = notification.sender?.nickname || '익명';
-              const ts = notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR') : '';
-              return (
-                <div
-                  key={notification.id}
-                  className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
-                  onClick={() => handleNotificationClick(notification.id, notification.isRead)}
-                >
-                  <div className="notification-content">
-                    {notification.type === 'comment' ? (
-                      <>
-                        <p className="notification-main-text text-base font-inter">
-                          {senderName}님이 댓글을 달았어요.
-                        </p>
-                        {notification.message && (
-                          <p className="notification-message text-base font-inter">
-                            {notification.message}
+            {notifications.length > 0 ? (
+              notifications.map((notification) => {
+                const senderName = notification.sender?.nickname || '익명';
+                const ts = notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR') : '';
+                return (
+                  <div
+                    key={notification.id}
+                    className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
+                    onClick={() => handleNotificationClick(notification.id, notification.isRead)}
+                  >
+                    <div className="notification-content">
+                      {notification.type === 'comment' ? (
+                        <>
+                          <p className="notification-main-text text-base font-inter">
+                            {senderName}님이 댓글을 달았어요.
                           </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="notification-like text-base font-semibold font-pretendard">
-                        {senderName}님이 좋아요를 눌렀어요.
-                      </p>
-                    )}
+                          {notification.message && (
+                            <p className="notification-message text-base font-inter">
+                              {notification.message}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="notification-like text-base font-semibold font-pretendard">
+                          {senderName}님이 좋아요를 눌렀어요.
+                        </p>
+                      )}
+                    </div>
+                    <p className="notification-timestamp item-timestamp text-sm font-pretendard">
+                      {ts}
+                    </p>
                   </div>
-                  <p className="notification-timestamp item-timestamp text-sm font-pretendard">
-                    {ts}
-                  </p>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="notification-empty">
+                <p className="text-base font-inter">받은 알림이 없습니다.</p>
+              </div>
+            )}
           </div>
 
           {/* 하단 네비게이션 */}
