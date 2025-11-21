@@ -9,36 +9,6 @@ import FriendsButton from '../../components/FriendsButton';
 import PostCard from '../../components/PostCard';
 import { getProfile, getUserPosts, getFriends } from '../../api';
 
-// =========================
-// ✨ 샘플 포스트 설정
-// =========================
-const USE_SAMPLE_POSTS = true; // 나중에 실제 데이터만 보고 싶으면 false 로 바꿔!
-
-const SAMPLE_POSTS = [
-  {
-    id: 1,
-    author: '민수 · 인사이드 아웃 2',
-    title: '불안이를 모아라',
-    preview: '감정이라는 캐릭터가 이렇게 귀엽고 설득력 있게 나올 줄은… 다시 생각하게 된 성장 영화.',
-    image: 'https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg',
-    likes: 12,
-    comments: 3,
-    liked: true,
-    createdAt: '2025.11.13 21:00',
-  },
-  {
-    id: 2,
-    author: '민수 · 웡카',
-    title: '달콤하지만 조금은 씁쓸한 이야기',
-    preview: '동심 가득한 음악 영화인 줄 알았는데, 자본과 꿈 사이에서 고민하는 이야기라 더 좋았다.',
-    image: 'https://image.tmdb.org/t/p/w500/qhb1qOilapbapxWQn9jtRCMwXJF.jpg',
-    likes: 5,
-    comments: 0,
-    liked: false,
-    createdAt: '2025.11.10 18:30',
-  },
-];
-
 function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -58,13 +28,7 @@ function Profile() {
         
         // 유저의 포스트 가져오기
         const userPosts = await getUserPosts(currentUser.id);
-        
-        // 실제 포스트가 없고 샘플을 보고 싶을 때만 SAMPLE_POSTS 사용
-        if (USE_SAMPLE_POSTS && (!userPosts || userPosts.length === 0)) {
-          setPosts(SAMPLE_POSTS);
-        } else {
-          setPosts(userPosts || []);
-        }
+        setPosts(userPosts || []);
         
         // 친구 수를 실제 친구 목록 길이로 설정
         try {
@@ -77,15 +41,10 @@ function Profile() {
       } catch (error) {
         console.error('프로필 로딩 실패:', error);
         
-        // 에러 발생 시 샘플 데이터로 대체 (개발용)
-        setUser({
-          id: 1,
-          name: '민수',
-          email: 'minsu@example.com',
-          profileImage: null
-        });
-        setPosts(SAMPLE_POSTS);
-        setFriendCount(15);
+        // 에러 발생 시 기본값으로 대체
+        setUser(null);
+        setPosts([]);
+        setFriendCount(0);
       } finally {
         setLoading(false);
       }

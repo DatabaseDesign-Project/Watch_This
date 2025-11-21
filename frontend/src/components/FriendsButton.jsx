@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  Button, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar,
+  Dialog, DialogTitle, DialogContent, List, ListItem, ListItemAvatar,
   Avatar, ListItemText, IconButton, Tooltip, TextField, Box
 } from '@mui/material';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { getFriends, removeFriend, addFriend } from '../api';
+import { Button } from './Button';
 
 export default function FriendsButton({ count, onChanged }) {
   const [open, setOpen] = useState(false);
@@ -51,9 +52,8 @@ export default function FriendsButton({ count, onChanged }) {
   return (
     <>
       <Button
-        variant="outlined"
-        size="small"
-        sx={{ borderRadius: 2, borderColor: '#ff8a8a', color: '#ff6b6b', textTransform: 'none', px: 2.5 }}
+        variant="outline"
+        size="sm"
         onClick={() => setOpen(true)}
       >
         친구 {count}명
