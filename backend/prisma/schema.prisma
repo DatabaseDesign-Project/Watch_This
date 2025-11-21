@@ -69,7 +69,6 @@ model posts {
     user_id      BigInt
     movie_id     BigInt
     title        String?  @db.VarChar(150)
-    body         String?
     created_at   DateTime @default(now())
     updated_at   DateTime?
     emojis_id    BigInt?
