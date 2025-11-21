@@ -111,9 +111,20 @@ export const getMyPosts = async () => {
 
 // POST /api/v1/posts/{post_id}/like
 // DELETE /api/v1/posts/{post_id}/like
-export const toggleLike = async (postId, likedNow) => {
-  const method = likedNow ? 'DELETE' : 'POST';
-  await jfetch(`/v1/posts/${postId}/like`, { method });
+// [수정] 좋아요 토글 (헤더 추가)
+export const toggleLike = async (postId, isLiked) => {
+    const method = isLiked ? 'DELETE' : 'POST';
+    const res = await fetch(`/api/v1/posts/${postId}/like`, {
+        method: method,
+        headers: {
+            'X-User-Id': getUserId(), // 유저 ID 전달
+        },
+    });
+    
+    if (!res.ok) {
+        throw new Error('좋아요 처리 실패');
+    }
+    return true; 
 };
 
 /* =====================
@@ -121,16 +132,35 @@ export const toggleLike = async (postId, likedNow) => {
  * ===================== */
 
 // GET /api/v1/posts/{post_id}/comments
-export const getComments = (postId) =>
-  jfetch(`/v1/posts/${postId}/comments`);
+// [수정] 댓글 목록 조회 (헤더 추가)
+export const getComments = async (postId) => {
+    const res = await fetch(`/api/v1/posts/${postId}/comments`, {
+        headers: {
+            'X-User-Id': getUserId(),
+        },
+    });
+    if (!res.ok) {
+        return [];
+    }
+    return await res.json();
+};
 
 // POST /api/v1/posts/{post_id}/comments
-export const addComment = (postId, content) =>
-  jfetch(`/v1/posts/${postId}/comments`, {
-    method: 'POST',
-    body: JSON.stringify({ content }),
-  });
-
+// [수정] 댓글 작성 (헤더 추가)
+export const addComment = async (postId, content) => {
+    const res = await fetch(`/api/v1/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': getUserId(), // 유저 ID 전달
+        },
+        body: JSON.stringify({ content }),
+    });
+    if (!res.ok) {
+        throw new Error('댓글 작성 실패');
+    }
+    return await res.json();
+};
 
 /* =====================
  *  Friends (임시 구현)
@@ -251,6 +281,63 @@ export async function acceptFriendRequest(requesterId) {
 export async function rejectFriendRequest(requesterId) {
   return jfetch(`/v1/friends/requests/${requesterId}/reject`, { method: 'POST' });
 }
+
+
+
+export const uploadMedia = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/v1/medias/upload', {
+        method: 'POST',
+        body: formData,
+        // Content-Type 헤더는 브라우저가 자동으로 설정하므로 생략
+    });
+
+    if (!res.ok) {
+        throw new Error('이미지 업로드 실패');
+    }
+    return await res.json(); // 예상 응답: { id: 1, file_path: "url..." }
+};
+
+// src/api.js 파일의 기존 코드 아래에 추가하세요
+
+// [추가] 포스트 상세 조회
+// [수정] 포스트 상세 조회 (헤더 추가)
+// 유저 ID 가져오는 헬퍼 함수
+const getUserId = () => localStorage.getItem('user_id') || '1';
+
+export const getPostDetail = async (postId) => {
+    const res = await fetch(`/api/v1/posts/${postId}`, {
+        headers: {
+            'X-User-Id': getUserId(), // 유저 ID 전달
+        },
+    });
+    if (!res.ok) {
+        throw new Error('포스트를 불러오는데 실패했습니다.');
+    }
+    return await res.json();
+};
+
+// [추가] TMDB ID로 영화 상세 정보(포스터, 감독 등) 조회
+// GET /api/movies/detail/{tmdb_id}
+// src/api.js 파일 맨 아래에 기존 것을 지우고 이걸로 바꿔주세요!
+
+// [수정] TMDB ID로 영화 상세 정보 조회 (jfetch 사용 필수)
+export function getMovieDetail(tmdbId) {
+  // jfetch가 자동으로 '/api'를 붙여주므로 '/movies/detail/...'로 시작해야 합니다.
+  return jfetch(`/movies/detail/${tmdbId}`);
+}
+
+
+
+
+
+
+
+
+
+
 
 
   // // 간단한 API 래퍼. 백엔드 준비되면 URL만 맞춰주면 됩니다.
