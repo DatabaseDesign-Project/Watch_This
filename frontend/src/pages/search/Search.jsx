@@ -1,16 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import BottomNavigation from '../../components/BottomNavigation';
 import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import MovieCard from '../../components/MovieCard';
-import PostCard from '../../components/PostCard';
-import MovieDetail from '../../components/MovieDetail';
-import PostWriting from '../../components/PostWriting';
-import { getMoviePostsByTmdb } from '../../api';
 
 const Search = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHistory, setSearchHistory] = useState([
     '어벤져스',
@@ -19,10 +17,6 @@ const Search = () => {
   ]);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
-  const [selectedMovie, setSelectedMovie] = useState(null);
-  const [selectedMoviePosts, setSelectedMoviePosts] = useState([]);
-  const [loadingMoviePosts, setLoadingMoviePosts] = useState(false);
-  const [showPostWriting, setShowPostWriting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const debounceRef = useRef(null);
@@ -92,8 +86,6 @@ const Search = () => {
 
     setHasSearched(true);
     setSearchResults([]);
-    setSelectedMovie(null);
-    setSelectedMoviePosts([]);
 
     try {
       const url = new URL('/api/movies/search', window.location.origin);
@@ -140,21 +132,9 @@ const Search = () => {
     setSearchHistory([]);
   };
 
-  const handleMovieSelect = async (movie) => {
-    console.log('handleMovieSelect called with movie:', movie);
-    // set selected movie and try to load related posts (may be empty if movie not imported in DB)
-    setSelectedMovie(movie);
-    setSelectedMoviePosts([]);
-    setLoadingMoviePosts(true);
-    try {
-      const posts = await getMoviePostsByTmdb(movie.id, { limit: 10 });
-      setSelectedMoviePosts(Array.isArray(posts) ? posts : []);
-    } catch (e) {
-      console.error('failed to load movie posts', e);
-      setSelectedMoviePosts([]);
-    } finally {
-      setLoadingMoviePosts(false);
-    }
+  const handleMovieSelect = (movie) => {
+    // 영화 상세 페이지로 이동 (영화 정보를 state로 전달)
+    navigate(`/movie/${movie.id}`, { state: { movie } });
   };
 
   // debounced live search as user types (300ms)
@@ -165,7 +145,6 @@ const Search = () => {
       clearTimeout(debounceRef.current);
       setHasSearched(false);
       setSearchResults([]);
-      setSelectedMovie(null);
       return;
     }
 
@@ -228,38 +207,11 @@ const Search = () => {
                 )}
 
                 {!error && searchResults.length > 0 ? (
-                  <>
-                    <div className="search-movie-list">
-                      {searchResults.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
-                      ))}
-                    </div>
-
-                    {selectedMovie && (
-                      showPostWriting ? (
-                        <PostWriting movie={selectedMovie} onBack={() => setShowPostWriting(false)} onSubmit={async (data) => {
-                          // after submit, reload posts
-                          setShowPostWriting(false);
-                          try {
-                            setLoadingMoviePosts(true);
-                            const posts = await getMoviePostsByTmdb(selectedMovie.id, { limit: 10 });
-                            setSelectedMoviePosts(Array.isArray(posts) ? posts : []);
-                          } catch (e) {
-                            console.error('reload after submit failed', e);
-                          } finally {
-                            setLoadingMoviePosts(false);
-                          }
-                        }} />
-                      ) : (
-                        // show detail in a fixed overlay so it's visually obvious
-                        <div className="movie-detail-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24 }}>
-                          <div style={{ width: '100%', maxWidth: 540, background: 'transparent' }}>
-                            <MovieDetail movie={selectedMovie} posts={selectedMoviePosts} loading={loadingMoviePosts} onBack={() => setSelectedMovie(null)} onWrite={() => setShowPostWriting(true)} />
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </>
+                  <div className="search-movie-list">
+                    {searchResults.map((movie) => (
+                      <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
+                    ))}
+                  </div>
                 ) : (
                   <div className="search-placeholder">
                     <p>{loading ? '검색 중…' : '검색 결과가 없습니다.'}</p>

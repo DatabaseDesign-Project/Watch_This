@@ -1,5 +1,6 @@
 // MovieCard.jsx
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import emptyImg from '../assets/empty-img.png';
 
 export default function MovieCard({ movie, onSelect }) {
     const handleClick = () => {
@@ -9,7 +10,7 @@ export default function MovieCard({ movie, onSelect }) {
     };
 
     // Normalize poster property from different API shapes
-    const posterUrl = movie?.poster || movie?.image || (movie?.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '');
+    const posterUrl = movie?.poster || movie?.image || (movie?.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : emptyImg);
 
     return (
         <div

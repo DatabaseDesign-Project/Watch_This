@@ -1430,6 +1430,242 @@ html, body, #root {
   opacity: 1;
 }
 
+/* ============================================
+   영화 상세 페이지 스타일
+   ============================================ */
+
+.movie-detail-page {
+  width: 100%;
+  min-height: 100%;
+  background-color: var(--background-color);
+  position: relative;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* Hero Section */
+.movie-detail-hero {
+  position: relative;
+  height: 256px;
+  width: 100%;
+}
+
+.movie-detail-hero-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(30px);
+}
+
+.movie-detail-hero-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(40, 40, 40, 1) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.movie-detail-back-btn {
+  position: absolute;
+  top: 56px;
+  left: 16px;
+  z-index: 10;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Content Card */
+.movie-detail-content-card {
+  position: relative;
+  background-color: var(--color-secondary);
+  border-radius: 30px 30px 0 0;
+  margin-top: -20px;
+  box-shadow: 0px -2px 11px 0px rgba(0, 0, 0, 0.25);
+  min-height: 500px;
+  padding-bottom: 72px;
+}
+
+.movie-detail-page-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 26.63px;
+  color: var(--color-primary);
+  margin: 25px 26px 17px;
+}
+
+.movie-detail-info {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 25px;
+  color: var(--color-primary);
+  margin: 0 27px 24px;
+}
+
+.movie-detail-overview-text {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--btn-color-Ghost);
+}
+
+/* Write Post Button */
+.movie-detail-write-btn {
+  width: calc(100% - 48px);
+  height: 30px;
+  border: 0.5px solid var(--color-accent3);
+  border-radius: 12px;
+  background: transparent;
+  margin: 0 24px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.movie-detail-write-btn:hover {
+  background-color: rgba(243, 80, 95, 0.05);
+}
+
+.movie-detail-write-btn-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 14.32px;
+  color: var(--color-accent3);
+  text-align: center;
+}
+
+/* Divider */
+.movie-detail-divider {
+  width: 100%;
+  height: 0.5px;
+  background-color: #D5D5D5;
+}
+
+/* Related Posts Section */
+.movie-detail-posts-section {
+  padding: 25px 24px 24px;
+}
+
+.movie-detail-section-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 16.94px;
+  color: var(--color-primary);
+  margin: 0 0 24px 0;
+}
+
+.movie-detail-posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+/* Post Card */
+.movie-detail-post-card {
+  position: relative;
+}
+
+.movie-detail-post-header {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 14.32px;
+  color: var(--color-primary);
+  margin-bottom: 5px;
+}
+
+.movie-detail-post-title {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 16.71px;
+  color: var(--color-primary);
+  margin: 0 0 5px 0;
+}
+
+.movie-detail-post-content {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 300;
+  font-size: 12px;
+  line-height: 14.32px;
+  color: var(--color-primary);
+  margin: 0 0 7px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Spoiler Badge */
+.movie-detail-spoiler-badge {
+  display: inline-block;
+  background-color: var(--btn-color-Ghost);
+  border-radius: 12px;
+  padding: 4px 9px;
+  margin-bottom: 7px;
+}
+
+.movie-detail-spoiler-text {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 11.93px;
+  color: var(--color-secondary);
+}
+
+/* Post Footer */
+.movie-detail-post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.movie-detail-post-date {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 300;
+  font-size: 8px;
+  line-height: 9.55px;
+  color: var(--color-primary);
+  text-align: right;
+}
+
+/* Emoji Badge */
+.movie-detail-emoji-badge {
+  width: 33px;
+  height: 32px;
+  background-color: var(--color-secondary);
+  border-radius: 8px;
+  box-shadow: 0px 1px 3px 0px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+/* Loading & Empty States */
+.movie-detail-loading,
+.movie-detail-no-posts {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 14px;
+  color: var(--btn-color-Ghost);
+  text-align: center;
+  padding: 20px 0;
+  margin: 0;
+}
+
 .movie-poster-wrap{
   position: relative;
   width: 96px;
