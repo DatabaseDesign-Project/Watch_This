@@ -283,7 +283,7 @@ export default function PostDetail({ postId, onBack }) {
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px' }}>
                             {comments.map(c => (
                                 <div key={c.id} style={{ padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                                    <b>{c.user?.nickname || '익명'}</b>: {c.content}
+                                    <b>{c.user?.nickname || '익명'}</b>: {c.body || c.content}
                                 </div>
                             ))}
                         </div>

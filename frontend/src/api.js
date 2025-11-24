@@ -16,7 +16,7 @@ function getDevUserId() {
   return '1';
 }
 
-// Alias used by some older code paths. In dev we read from localStorage.
+// Simple wrapper used by various call sites. Keeps dev/local behavior centralized.
 function getUserId() {
   return getDevUserId();
 }
@@ -159,7 +159,7 @@ export const addComment = async (postId, content) => {
             'Content-Type': 'application/json',
             'X-User-Id': getUserId(), // 유저 ID 전달
         },
-    // Backend expects `{ body: string }` according to CommentCreateIn
+    // backend expects { body: string }
     body: JSON.stringify({ body: content }),
     });
     if (!res.ok) {
@@ -310,9 +310,6 @@ export const uploadMedia = async (file) => {
 
 // [추가] 포스트 상세 조회
 // [수정] 포스트 상세 조회 (헤더 추가)
-// 유저 ID 가져오는 헬퍼 함수
-const getUserId = () => localStorage.getItem('user_id') || '1';
-
 export const getPostDetail = async (postId) => {
     const res = await fetch(`/api/v1/posts/${postId}`, {
         headers: {

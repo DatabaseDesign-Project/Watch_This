@@ -84,9 +84,22 @@ async def list_comments(
 ):
     rows = await db.comments.find_many(
         where={"post_id": post_id},
-        order={"created_at": "asc"}
+        order={"created_at": "asc"},
+        include={"user": True},
     )
     items = [_serialize_comment_row(r) for r in rows]
+
+    # attach minimal user info if available
+    for idx, r in enumerate(rows):
+        try:
+            user = r.user
+            items[idx]["user"] = {
+                "id": int(user.id),
+                "nickname": user.nickname,
+                "profile_image": user.profile_image,
+            } if user else None
+        except Exception:
+            items[idx]["user"] = None
 
     if mode == "flat":
         return items

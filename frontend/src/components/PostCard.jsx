@@ -54,10 +54,10 @@ export default function PostCard({ post, onClick }) {
   const onAddComment = async () => {
     if (!input.trim()) return;
     try {
-      const newC = await addComment(post.id, input.trim());
+      await addComment(post.id, input.trim());
       setInput('');
-      setComments(prev => [...prev, newC]);
-      setCommentCount(n => n + 1);
+      // refresh from server to get canonical comment shape
+      await loadComments();
     } catch (e) {
       console.error('댓글 추가 실패', e);
     }
@@ -130,7 +130,7 @@ export default function PostCard({ post, onClick }) {
             <List>
               {comments.map(c => (
                 <ListItem key={c.id} alignItems="flex-start">
-                  <ListItemText primary={c.user?.nickname || '익명'} secondary={c.content} />
+                  <ListItemText primary={c.user?.nickname || '익명'} secondary={c.body || c.content} />
                 </ListItem>
               ))}
               {comments.length === 0 && (
