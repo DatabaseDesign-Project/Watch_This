@@ -66,22 +66,24 @@ export default function PostListWithDetail() {
                     </div>
                 ) : posts.length > 0 ? (
                     posts.map((post) => (
-                        <PostCard
-                            key={post.post_id || post.id}
-                            post={{
-                                id: post.post_id || post.id,
-                                author: post.user?.nickname || '익명',
-                                title: post.title || '',
-                                preview: (post.answers || []).map(a => a.answer).join('\n'),
-                                image: (post.questionMedias && post.questionMedias[0]) 
-                                    ? post.questionMedias[0].file_path 
-                                    : null,
-                                likes: post.like_cnt || 0,
-                                comments: (post.comments || []).length || 0,
-                                createdAt: post.created_at,
-                            }}
-                            onClick={handlePostClick}
-                        />
+                                <PostCard
+                                    key={post.post_id || post.id}
+                                    post={{
+                                        id: post.post_id || post.id,
+                                        author: post.user?.nickname || '익명',
+                                        title: post.title || '',
+                                        preview: (post.answers || []).map(a => a.answer).join('\n'),
+                                        image: (post.questionMedias && post.questionMedias[0]) 
+                                            ? post.questionMedias[0].file_path 
+                                            : null,
+                                        likes: post.like_cnt || 0,
+                                        comments: (post.comments || []).length || 0,
+                                        createdAt: post.created_at,
+                                        // include liked flag from backend (support both names)
+                                        liked: post.liked || post.is_liked || false,
+                                    }}
+                                    onClick={handlePostClick}
+                                />
                     ))
                 ) : (
                     <div style={{ textAlign: 'center', color: '#999', padding: '40px 20px' }}>

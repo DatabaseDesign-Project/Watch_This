@@ -5,6 +5,7 @@ import json
 import httpx
 
 from fastapi import APIRouter, HTTPException, Path, Body, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from decimal import Decimal
 
 from app.db import db
@@ -294,7 +295,41 @@ async def feed(
         take=limit,
         include={"user": True, "answers": True, "questionMedias": True, "emoji": True,  "movie": True },
     )
-    return posts
+    # backfill `liked` boolean per post for current_user_id (batch)
+    try:
+        post_ids = [int(p.post_id) for p in posts]
+        if post_ids:
+            like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
+            liked_set = {int(r.post_id) for r in like_rows}
+        else:
+            liked_set = set()
+        # attach liked attribute
+        for p in posts:
+            try:
+                val = int(p.post_id) in liked_set
+                setattr(p, "liked", val)
+                setattr(p, "is_liked", val)
+            except Exception:
+                # best-effort: ignore if cannot set
+                pass
+    except Exception:
+        # non-fatal: return posts without liked field
+        pass
+
+    # ensure returned objects are JSON-serializable dicts and include liked/is_liked
+    try:
+        encoded = jsonable_encoder(posts)
+        # attach liked flags to encoded dicts
+        for idx, p in enumerate(posts):
+            try:
+                val = int(p.post_id) in liked_set
+                encoded[idx]["liked"] = val
+                encoded[idx]["is_liked"] = val
+            except Exception:
+                pass
+        return encoded
+    except Exception:
+        return posts
 
 
 # =========================
@@ -312,7 +347,20 @@ async def get_post(
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
     await ensure_post_visible(post, current_user_id)
-    return post
+    # attach liked boolean and return JSON-serializable dict
+    try:
+        exists = await db.likes.find_unique(where={"user_id_post_id": {"user_id": current_user_id, "post_id": post_id}})
+        val = bool(exists)
+        # encode to dict for response
+        encoded = jsonable_encoder(post)
+        encoded["liked"] = val
+        encoded["is_liked"] = val
+        return encoded
+    except Exception:
+        try:
+            return jsonable_encoder(post)
+        except Exception:
+            return post
 
 
 # =========================
@@ -389,4 +437,24 @@ async def list_user_posts(
         take=limit,
         include={"emoji": True},
     )
-    return rows
+    try:
+        post_ids = [int(r.post_id) for r in rows]
+        if post_ids:
+            like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
+            liked_set = {int(r.post_id) for r in like_rows}
+        else:
+            liked_set = set()
+        encoded = jsonable_encoder(rows)
+        for idx, r in enumerate(rows):
+            try:
+                val = int(r.post_id) in liked_set
+                encoded[idx]["liked"] = val
+                encoded[idx]["is_liked"] = val
+            except Exception:
+                pass
+        return encoded
+    except Exception:
+        try:
+            return jsonable_encoder(rows)
+        except Exception:
+            return rows

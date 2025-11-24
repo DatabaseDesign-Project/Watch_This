@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, List, Set
 import redis.asyncio as aioredis
 
 from app.core.deps import get_redis, get_current_user_id
+from fastapi.encoders import jsonable_encoder
 from app.db import db
 from app.services.visibility import build_visibility_or  # 재사용
 
@@ -285,6 +286,23 @@ async def list_movie_posts_proxy(
         take=limit,
         include={"user": True, "emoji": True},
     )
+    # attach liked boolean for current_user_id
+    try:
+        post_ids = [int(r.post_id) for r in rows]
+        if post_ids:
+            like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
+            liked_set = {int(r.post_id) for r in like_rows}
+        else:
+            liked_set = set()
+        for r in rows:
+            try:
+                val = int(r.post_id) in liked_set
+                setattr(r, "liked", val)
+                setattr(r, "is_liked", val)
+            except Exception:
+                pass
+    except Exception:
+        pass
     return rows
 
 @router.get("/tmdb/{tmdb_id}/posts")
@@ -321,6 +339,23 @@ async def list_movie_posts_by_tmdb(
         take=limit,
         include={"user": True, "emoji": True},
     )
+    # attach liked for current user
+    try:
+        post_ids = [int(r.post_id) for r in rows]
+        if post_ids:
+            like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
+            liked_set = {int(r.post_id) for r in like_rows}
+        else:
+            liked_set = set()
+        for r in rows:
+            try:
+                val = int(r.post_id) in liked_set
+                setattr(r, "liked", val)
+                setattr(r, "is_liked", val)
+            except Exception:
+                pass
+    except Exception:
+        pass
     return rows
 
 # =========================================================

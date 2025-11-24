@@ -105,8 +105,8 @@ export default function PostCard({ post, onClick }) {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {/* 좋아요 */}
-          <IconButton onClick={onToggleLike} size="small">
-            {liked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+          <IconButton onClick={onToggleLike} size="small" aria-pressed={liked}>
+            {liked ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
           </IconButton>
           <Typography variant="body2" color="text.secondary">
             {likes}

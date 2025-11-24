@@ -356,6 +356,7 @@ export default function App() {
                     image: posterImage,
                     likes: p.like_cnt || 0,
                     comments: (p.comments || []).length || 0,
+                    liked: p.liked || p.is_liked || false,
                     emoji: p.emoji?.emoji_image || null,
                 };
             });

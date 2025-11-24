@@ -16,6 +16,11 @@ function getDevUserId() {
   return '1';
 }
 
+// Alias used by some older code paths. In dev we read from localStorage.
+function getUserId() {
+  return getDevUserId();
+}
+
 async function jfetch(path, opts = {}) {
   const res = await fetch(`${API_ROOT}${path}`, {
     credentials: 'include',
@@ -154,7 +159,8 @@ export const addComment = async (postId, content) => {
             'Content-Type': 'application/json',
             'X-User-Id': getUserId(), // 유저 ID 전달
         },
-        body: JSON.stringify({ content }),
+    // Backend expects `{ body: string }` according to CommentCreateIn
+    body: JSON.stringify({ body: content }),
     });
     if (!res.ok) {
         throw new Error('댓글 작성 실패');

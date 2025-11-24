@@ -26,9 +26,23 @@ function Profile() {
         const currentUser = await getProfile();
         setUser(currentUser);
         
-        // 유저의 포스트 가져오기
-        const userPosts = await getUserPosts(currentUser.id);
-        setPosts(userPosts || []);
+    // 유저의 포스트 가져오기
+    const userPosts = await getUserPosts(currentUser.id);
+    // Normalize to PostCard-friendly shape (ensure liked is passed)
+    const mapped = Array.isArray(userPosts)
+      ? userPosts.map(p => ({
+        id: p.post_id || p.id,
+        author: p.user?.nickname || '익명',
+        title: p.title || '',
+        preview: (p.answers || []).map(a => a.answer).join('\n'),
+        image: (p.questionMedias && p.questionMedias[0]) ? p.questionMedias[0].file_path : null,
+        likes: p.like_cnt || 0,
+        comments: (p.comments || []).length || 0,
+        createdAt: p.created_at,
+        liked: p.liked || p.is_liked || false,
+      }))
+      : [];
+    setPosts(mapped);
         
         // 친구 수를 실제 친구 목록 길이로 설정
         try {
