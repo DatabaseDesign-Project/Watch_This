@@ -97,7 +97,7 @@ const Notification = () => {
 
           {/* 알림 목록 */}
           <div className="notification-list">
-            {notifications.length > 0 ? (
+                {notifications.length > 0 ? (
               notifications.map((notification) => {
                 const senderName = notification.sender?.nickname || '익명';
                 const ts = notification.created_at ? new Date(notification.created_at).toLocaleString('ko-KR') : '';
@@ -105,7 +105,13 @@ const Notification = () => {
                   <div
                     key={notification.id}
                     className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
-                    onClick={() => handleNotificationClick(notification.id, notification.isRead)}
+                    onClick={() => {
+                      handleNotificationClick(notification.id, notification.isRead);
+                      // if it's a friend request notification, open the friend request view
+                      if (notification.type === 'friend_request') {
+                        handleFriendRequestClick();
+                      }
+                    }}
                   >
                     <div className="notification-content">
                       {notification.type === 'comment' ? (
@@ -119,9 +125,18 @@ const Notification = () => {
                             </p>
                           )}
                         </>
-                      ) : (
+                      ) : notification.type === 'friend_request' ? (
+                        <p className="notification-friend text-base font-semibold font-pretendard">
+                          {senderName}님이 친구 요청을 보냈어요.
+                        </p>
+                      ) : notification.type === 'like' ? (
                         <p className="notification-like text-base font-semibold font-pretendard">
                           {senderName}님이 좋아요를 눌렀어요.
+                        </p>
+                      ) : (
+                        // fallback: show provided message or a generic text
+                        <p className="notification-generic text-base font-inter">
+                          {notification.message || `${senderName}님으로부터 알림이 있습니다.`}
                         </p>
                       )}
                     </div>
