@@ -26,7 +26,7 @@ export default function QuestionAnswer({
             <div style={{ position: 'relative' }}>
                 <textarea
                     className="question-textarea"
-                    placeholder={placeholder || "내용을 입력해주세요."}
+                    placeholder=""
                     value={answerValue}
                     onChange={(e) => onAnswerChange(e.target.value)}
                     rows={4}
@@ -45,7 +45,7 @@ export default function QuestionAnswer({
                             onClick={onDeleteImage}
                             style={{ position: 'absolute', top: -8, right: -8, background: '#333', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', border: 'none', fontSize: '12px', cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}
                         >
-                            X
+                            ×
                         </button>
                     </div>
                 )}
@@ -64,7 +64,12 @@ export default function QuestionAnswer({
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
                         />
-                        <span style={{ fontSize: '20px' }}>📷</span>
+                        {/* SVG 이미지 아이콘 */}
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="5" width="18" height="14" rx="2" stroke="#6C757D" strokeWidth="1.5" fill="none"/>
+                            <circle cx="8.5" cy="9.5" r="1.5" fill="#6C757D"/>
+                            <path d="M3 15L7 11L10 14L14 10L21 17V17C21 18.1046 20.1046 19 19 19H5C3.89543 19 3 18.1046 3 17V15Z" fill="#6C757D" opacity="0.3"/>
+                        </svg>
                     </label>
                 </div>
             </div>
