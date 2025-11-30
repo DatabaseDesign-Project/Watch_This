@@ -435,7 +435,7 @@ async def list_user_posts(
         where=base,
         order={"created_at": "desc"},
         take=limit,
-        include={"emoji": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
     )
     try:
         post_ids = [int(r.post_id) for r in rows]
