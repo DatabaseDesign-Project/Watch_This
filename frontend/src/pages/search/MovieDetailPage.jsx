@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import PostWriting from '../../components/PostWriting';
-import { getMoviePostsByTmdb } from '../../api';
+import { getMoviePostsByTmdb, getMovieDetail } from '../../api';
 import emptyImg from '../../assets/empty-img.png';
 
 export default function MovieDetailPage() {
@@ -21,32 +21,40 @@ export default function MovieDetailPage() {
   // 영화 정보 로드 (state로 전달받지 못한 경우에만)
   useEffect(() => {
     const fetchMovie = async () => {
-      if (movie) {
-        setLoading(false);
-        return; // 이미 영화 정보가 있으면 skip
-      }
-
       try {
         setLoading(true);
-        // Search 페이지와 동일한 방식으로 TMDB API 호출
-        const url = new URL('/api/movies/search', window.location.origin);
-        url.searchParams.set('q', id);
-        url.searchParams.set('page', '1');
+        let baseMovie = movie;
 
-        const res = await fetch(url.toString(), {
-          method: 'GET',
-          headers: { accept: 'application/json' },
-          credentials: 'same-origin',
-        });
+        // 검색 결과를 통해 기본 정보 확보 (없을 때만)
+        if (!baseMovie) {
+          const url = new URL('/api/movies/search', window.location.origin);
+          url.searchParams.set('q', id);
+          url.searchParams.set('page', '1');
 
-        if (res.ok) {
-          const data = await res.json();
-          const items = Array.isArray(data?.results) ? data.results : [];
-          // 검색 결과에서 ID가 일치하는 영화 찾기
-          const found = items.find(m => String(m.id) === String(id));
-          if (found) {
-            setMovie(found);
+          const res = await fetch(url.toString(), {
+            method: 'GET',
+            headers: { accept: 'application/json' },
+            credentials: 'same-origin',
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const items = Array.isArray(data?.results) ? data.results : [];
+            baseMovie = items.find((m) => String(m.id) === String(id)) || null;
           }
+        }
+
+        // 상세 정보(원제, 출연, 장르 배열 등) 추가 로드
+        let detailMovie = null;
+        try {
+          detailMovie = await getMovieDetail(id);
+        } catch (err) {
+          console.error('영화 상세 로드 실패:', err);
+        }
+
+        const merged = detailMovie ? { ...baseMovie, ...detailMovie } : baseMovie;
+        if (merged) {
+          setMovie(merged);
         }
       } catch (e) {
         console.error('영화 정보 로드 실패:', e);
@@ -72,7 +80,7 @@ export default function MovieDetailPage() {
       fetchMovie();
       fetchPosts();
     }
-  }, [id, movie]);
+  }, [id]);
 
   // 날짜 포맷팅 (2019-04-24 -> 2019.04.24)
   const formatDate = (date) => {
@@ -116,6 +124,15 @@ export default function MovieDetailPage() {
       setLoadingPosts(false);
     }
   };
+
+  // 추가 정보 포맷터
+  const originalTitle = movie?.original_title || movie?.originalTitle || '';
+  const genres =
+    movie?.genre ||
+    (Array.isArray(movie?.genres) ? movie.genres.map((g) => g.name).join(', ') : '');
+  const castList = Array.isArray(movie?.credits?.cast)
+    ? movie.credits.cast.slice(0, 5).map((c) => c.name).join(', ')
+    : '';
 
   if (loading) {
     return (
@@ -198,20 +215,28 @@ export default function MovieDetailPage() {
               <div className="movie-detail-content-card">
                 {/* Movie Title */}
                 <h1 className="movie-detail-page-title">{movie.title}</h1>
+                {originalTitle && (
+                  <div className="movie-detail-original-title">{originalTitle}</div>
+                )}
 
                 {/* Movie Info */}
                 <div className="movie-detail-info">
                   {(movie.releaseDate || movie.release_date) && (
                     <>개봉연월 | {formatDate(movie.releaseDate || movie.release_date)}<br /></>
                   )}
-                  {movie.genre && (
-                    <>장르 | {movie.genre}<br /></>
+                  {genres && (
+                    <>장르 | {genres}<br /></>
                   )}
                   {movie.director && (
                     <>감독 | {movie.director}<br /></>
                   )}
+                  {castList && (
+                    <>출연 | {castList}<br /></>
+                  )}
                   {movie.overview && (
-                    <span className="movie-detail-overview-text">{movie.overview}</span>
+                    <>
+                      <span className="movie-detail-overview-text">{movie.overview}</span>
+                    </>
                   )}
                 </div>
 
