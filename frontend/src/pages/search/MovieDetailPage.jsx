@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import PostWriting from '../../components/PostWriting';
+import PostCard from '../../components/PostCard';
+import PostDetail from '../../components/PostDetail';
 import { getMoviePostsByTmdb, getMovieDetail } from '../../api';
 import emptyImg from '../../assets/empty-img.png';
 
@@ -17,6 +19,7 @@ export default function MovieDetailPage() {
   const [loading, setLoading] = useState(!location.state?.movie);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [showPostWriting, setShowPostWriting] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
 
   // 영화 정보 로드 (state로 전달받지 못한 경우에만)
   useEffect(() => {
@@ -67,7 +70,36 @@ export default function MovieDetailPage() {
       try {
         setLoadingPosts(true);
         const postsData = await getMoviePostsByTmdb(id, { limit: 10 });
-        setPosts(Array.isArray(postsData) ? postsData : []);
+        console.log('🎬 영화 - 원본 포스트 데이터:', postsData);
+
+        // 홈 피드와 동일한 데이터 매핑
+        const mapped = Array.isArray(postsData)
+          ? postsData.map((p) => {
+              const posterImage = p.movie?.poster_image || p.movie?.poster || null;
+              const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
+              const image = posterImage || questionMedia || null;
+              const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
+
+              return {
+                id: p.post_id,
+                category: p.user?.nickname || '익명',
+                movieTitle: p.movie?.title || p.movie?.korean_title || '',
+                title: p.title || '',
+                description,
+                image,
+                likes: p.like_cnt || 0,
+                comments: (p.comments || []).length || 0,
+                liked: p.liked || p.is_liked || false,
+                emoji: p.emoji?.emoji_image || null,
+                createdAt: p.created_at,
+                isSpoiler: Boolean(p.is_spoiler || p.has_spoiler),
+                showPlaceholderImage: !image,
+              };
+            })
+          : [];
+
+        console.log('🎬 영화 - 매핑된 포스트:', mapped);
+        setPosts(mapped);
       } catch (e) {
         console.error('포스트 로드 실패:', e);
         setPosts([]);
@@ -91,18 +123,6 @@ export default function MovieDetailPage() {
     return date;
   };
 
-  // 포스트 날짜 포맷팅
-  const formatPostDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}.${month}.${day} ${hours}:${minutes}`;
-  };
-
   const handleBack = () => {
     navigate(-1);
   };
@@ -117,12 +137,44 @@ export default function MovieDetailPage() {
     try {
       setLoadingPosts(true);
       const postsData = await getMoviePostsByTmdb(id, { limit: 10 });
-      setPosts(Array.isArray(postsData) ? postsData : []);
+      const mapped = Array.isArray(postsData)
+        ? postsData.map((p) => {
+            const posterImage = p.movie?.poster_image || p.movie?.poster || null;
+            const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
+            const image = posterImage || questionMedia || null;
+            const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
+
+            return {
+              id: p.post_id,
+              category: p.user?.nickname || '익명',
+              movieTitle: p.movie?.title || p.movie?.korean_title || '',
+              title: p.title || '',
+              description,
+              image,
+              likes: p.like_cnt || 0,
+              comments: (p.comments || []).length || 0,
+              liked: p.liked || p.is_liked || false,
+              emoji: p.emoji?.emoji_image || null,
+              createdAt: p.created_at,
+              isSpoiler: Boolean(p.is_spoiler || p.has_spoiler),
+              showPlaceholderImage: !image,
+            };
+          })
+        : [];
+      setPosts(mapped);
     } catch (e) {
       console.error('포스트 새로고침 실패:', e);
     } finally {
       setLoadingPosts(false);
     }
+  };
+
+  const handlePostClick = (post) => {
+    setSelectedPostId(post.id);
+  };
+
+  const handleBackFromDetail = () => {
+    setSelectedPostId(null);
   };
 
   // 추가 정보 포맷터
@@ -159,6 +211,17 @@ export default function MovieDetailPage() {
               <p>영화를 찾을 수 없습니다.</p>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedPostId) {
+    return (
+      <div className="fullscreen">
+        <div className="mobile-container">
+          <MobileStatusBar />
+          <PostDetail postId={selectedPostId} onBack={handleBackFromDetail} />
         </div>
       </div>
     );
@@ -258,49 +321,14 @@ export default function MovieDetailPage() {
                   {loadingPosts ? (
                     <p className="movie-detail-loading">불러오는 중…</p>
                   ) : posts && posts.length > 0 ? (
-                    <div className="movie-detail-posts-list">
-                      {posts.map((p) => {
-                        const postId = p.post_id || p.id;
-                        const nickname = p.user?.nickname || '익명';
-                        const postTitle = p.title || '';
-                        const content = (p.answers || []).map(a => a.answer).join('\n');
-                        const hasSpoiler = p.is_spoiler || false;
-                        const emoji = p.emoji?.emoji_image || '🤯';
-                        const date = formatPostDate(p.created_at);
-
-                        return (
-                          <div key={postId} className="movie-detail-post-card">
-                            {/* Post Header */}
-                            <div className="movie-detail-post-header">
-                              {nickname} ・ {movie.title}
-                            </div>
-
-                            {/* Post Title */}
-                            <h3 className="movie-detail-post-title">{postTitle}</h3>
-
-                            {/* Spoiler Badge or Content Preview */}
-                            {hasSpoiler ? (
-                              <div className="movie-detail-spoiler-badge">
-                                <span className="movie-detail-spoiler-text">
-                                  🤫 스포일러가 포함된 포스트입니다!
-                                </span>
-                              </div>
-                            ) : (
-                              <p className="movie-detail-post-content">{content}</p>
-                            )}
-
-                            {/* Post Footer */}
-                            <div className="movie-detail-post-footer">
-                              <span className="movie-detail-post-date">{date}</span>
-
-                              {/* Emoji Badge */}
-                              <div className="movie-detail-emoji-badge">
-                                <span>{emoji}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="posts-list">
+                      {posts.map((post) => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          onClick={handlePostClick}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <p className="movie-detail-no-posts">관련 포스트가 없습니다.</p>
