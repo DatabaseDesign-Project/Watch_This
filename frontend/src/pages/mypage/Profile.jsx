@@ -7,6 +7,7 @@ import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import FriendsButton from '../../components/FriendsButton';
 import PostCard from '../../components/PostCard';
+import PostDetail from '../../components/PostDetail';
 import { getProfile, getUserPosts, getFriends } from '../../api';
 
 function Profile() {
@@ -16,6 +17,7 @@ function Profile() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -26,23 +28,38 @@ function Profile() {
         const currentUser = await getProfile();
         setUser(currentUser);
         
-    // 유저의 포스트 가져오기
-    const userPosts = await getUserPosts(currentUser.id);
-    // Normalize to PostCard-friendly shape (ensure liked is passed)
-    const mapped = Array.isArray(userPosts)
-      ? userPosts.map(p => ({
-        id: p.post_id || p.id,
-        author: p.user?.nickname || '익명',
-        title: p.title || '',
-        preview: (p.answers || []).map(a => a.answer).join('\n'),
-        image: (p.questionMedias && p.questionMedias[0]) ? p.questionMedias[0].file_path : null,
-        likes: p.like_cnt || 0,
-        comments: (p.comments || []).length || 0,
-        createdAt: p.created_at,
-        liked: p.liked || p.is_liked || false,
-      }))
-      : [];
-    setPosts(mapped);
+        const userPosts = await getUserPosts(currentUser.id);
+        console.log('🔍 프로필 - 원본 포스트 데이터:', userPosts);
+        const mapped = Array.isArray(userPosts)
+          ? userPosts.map(p => {
+              console.log('🔍 프로필 - 개별 포스트:', p);
+              const posterImage = p.movie?.poster_image || p.movie?.poster || null;
+              const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
+              const image = posterImage || questionMedia || null;
+              const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
+
+              console.log('🔍 이미지 정보:', { posterImage, questionMedia, image });
+              console.log('🔍 설명:', description);
+
+              return {
+                id: p.post_id || p.id,
+                category: p.user?.nickname || p.nickname || user?.name || '익명',
+                movieTitle: p.movie?.title || p.movie?.korean_title || p.movie_title || '',
+                title: p.title || '',
+                description,
+                image,
+                likes: p.like_cnt || 0,
+                comments: (p.comments || []).length || 0,
+                createdAt: p.created_at || p.createdAt,
+                liked: p.liked || p.is_liked || false,
+                emoji: p.emoji?.emoji_image || p.emoji_image || null,
+                isSpoiler: Boolean(p.is_spoiler),
+                showPlaceholderImage: !image,
+              };
+            })
+          : [];
+        console.log('🔍 프로필 - 매핑된 포스트:', mapped);
+        setPosts(mapped);
         
         // 친구 수를 실제 친구 목록 길이로 설정
         try {
@@ -73,6 +90,25 @@ function Profile() {
     // 프로필 편집 로직 (임시로 alert)
     alert('프로필 편집 기능은 준비중입니다.');
   };
+
+  const handlePostClick = (post) => {
+    setSelectedPostId(post.id);
+  };
+
+  const handleBackFromDetail = () => {
+    setSelectedPostId(null);
+  };
+
+  if (selectedPostId) {
+    return (
+      <div className="fullscreen">
+        <div className="mobile-container">
+          <MobileStatusBar />
+          <PostDetail postId={selectedPostId} onBack={handleBackFromDetail} />
+        </div>
+      </div>
+    );
+  }
 
 
 
@@ -207,7 +243,7 @@ function Profile() {
               ) : (
                 <div className="posts-list">
                   {postsForDisplay.map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard key={post.id} post={post} onClick={handlePostClick} />
                   ))}
                 </div>
               )}

@@ -30,11 +30,16 @@ export default function App() {
         return;
       }
       const data = await res.json();
+      console.log('🏠 홈 - 원본 포스트 데이터:', data);
       const mapped = (data || []).map((p) => {
+        console.log('🏠 홈 - 개별 포스트:', p);
         const posterImage = p.movie?.poster_image || p.movie?.poster || null;
         const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
         const image = posterImage || questionMedia || null;
         const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
+
+        console.log('🏠 이미지 정보:', { posterImage, questionMedia, image });
+        console.log('🏠 설명:', description);
 
         return {
           id: p.post_id,
@@ -52,6 +57,7 @@ export default function App() {
           showPlaceholderImage: !image,
         };
       });
+      console.log('🏠 홈 - 매핑된 포스트:', mapped);
       setPosts(mapped);
     } catch (err) {
       console.error('feed fetch failed', err);
