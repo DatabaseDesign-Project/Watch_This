@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
-import BottomNavigation from '../../components/BottomNavigation';
 import PostWriting from '../../components/PostWriting';
 import { getMoviePostsByTmdb } from '../../api';
 import emptyImg from '../../assets/empty-img.png';
@@ -123,12 +122,11 @@ export default function MovieDetailPage() {
       <div className="fullscreen">
         <div className="mobile-container">
           <MobileStatusBar />
-          <div className="page-container">
+          <div className="page-container movie-detail-page-container">
             <div className="loading-container">
               <p>불러오는 중...</p>
             </div>
           </div>
-          <BottomNavigation activeTab="search" />
         </div>
       </div>
     );
@@ -139,12 +137,11 @@ export default function MovieDetailPage() {
       <div className="fullscreen">
         <div className="mobile-container">
           <MobileStatusBar />
-          <div className="page-container">
+          <div className="page-container movie-detail-page-container">
             <div className="error-container">
               <p>영화를 찾을 수 없습니다.</p>
             </div>
           </div>
-          <BottomNavigation activeTab="search" />
         </div>
       </div>
     );
@@ -170,7 +167,7 @@ export default function MovieDetailPage() {
       <div className="mobile-container">
         <MobileStatusBar />
 
-        <div className="page-container">
+        <div className="page-container movie-detail-page-container">
           <div className="content-container scrollable-container">
             <div className="movie-detail-page">
               {/* Hero Section with Movie Poster */}
@@ -288,8 +285,6 @@ export default function MovieDetailPage() {
             </div>
           </div>
         </div>
-
-        <BottomNavigation activeTab="search" />
       </div>
     </div>
   );
