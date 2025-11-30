@@ -3,7 +3,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import QuestionAnswer from './QuestionAnswer';
 import PrivacySelector from './PrivacySelector';
 import QuestionModal from './QuestionModal';
-import { getQuestions, createPost, uploadMedia } from '../api';
+import { getQuestions, createPost } from '../api'; // api.js에서 가져옴
 
 // MUI Rating & Icons
 import Rating from '@mui/material/Rating';
@@ -12,6 +12,9 @@ import StarBorder from '@mui/icons-material/StarBorder';
 
 // local fallback in case server emojis fail
 const FALLBACK_EMOJIS = ['😊', '😢', '😍', '😮', '😱', '😂', '😡', '😴', '🤔', '😎'];
+
+// 백엔드 URL (Vite 환경변수 또는 하드코딩)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 export default function PostWriting({ movie, onBack, onSubmit }) {
     const [postTitle, setPostTitle] = useState('');
@@ -36,7 +39,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         {
             id: 1,
             question: '자유롭게 이야기를 들려주세요!',
-            placeholder: '',  // placeholder 완전 제거
+            placeholder: '',
             answer: '',
             uploadedImageUrl: null,
             uploadedImageFile: null
@@ -57,7 +60,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         const newQuestion = {
             id: Date.now(),
             question: isObj ? selectedQuestion.content : selectedQuestion,
-            placeholder: '',  // placeholder 완전 제거
+            placeholder: '',
             answer: '',
             uploadedImageUrl: null,
             uploadedImageFile: null,
@@ -90,8 +93,11 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                 setQuestions((prev) => {
                     const mainIdx = prev.findIndex(q => q.question === '자유롭게 이야기를 들려주세요!');
                     if (mainIdx === -1) return prev;
+                    
                     const main = prev[mainIdx];
-                    const serverMain = data.find(s => s.content === '자유롭게 이야기를 들려주세요!');
+                    // [수정] 텍스트가 조금 달라도 찾을 수 있게 includes 사용
+                    const serverMain = data.find(s => s.content.includes('자유롭게'));
+                    
                     if (serverMain) {
                         const updated = [...prev];
                         updated[mainIdx] = { ...main, question_id: serverMain.id };
@@ -150,54 +156,95 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         return 'public';
     };
 
-    const handleSubmit = async () => {
-        const mainQ = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
+    // 이미지를 포스트 생성 후에 업로드하는 함수
+// 이미지를 포스트 생성 후에 업로드하는 함수
+    const uploadMediaAfterPost = async (postId, questionId, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('post_id', postId.toString());
+        formData.append('question_id', questionId.toString());
+        formData.append('media_type', 'image');
+
+        const userId = localStorage.getItem('user_id') || '1';
+        
+        // [CORS 해결] BACKEND_URL 제거하고 상대 경로 사용
+        const res = await fetch(`/api/v1/medias/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-User-Id': userId,
+            },
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error('이미지 업로드 실패: ' + errorText);
+        }
+        
+        const result = await res.json();
+        return result;
+    };
+
+    // [중요 수정] 핸들 서밋: 데이터 타입 변환 및 에러 핸들링 강화
+const handleSubmit = async () => {
+        const mainQ = questions.find(q => q.question.includes('자유롭게'));
         const mainAnswer = mainQ?.answer?.trim() || '';
+
         if (!mainAnswer) {
             alert('자유롭게 이야기를 들려주세요! 항목에 내용을 입력해주세요.');
+            return;
+        }
+
+        const validAnswers = questions
+            .filter(q => q.answer && q.answer.trim() !== '' && q.question_id)
+            .map(q => ({ 
+                question_id: Number(q.question_id),
+                answer: q.answer 
+            }));
+
+        if (validAnswers.length === 0) {
+            alert("질문 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.");
             return;
         }
 
         setSubmitting(true);
 
         try {
-            // 1. 이미지 업로드 (있는 경우)
-            const mediasToUpload = [];
-            for (const q of questions) {
-                if (q.uploadedImageFile && q.question_id) {
-                    try {
-                        const mediaResponse = await uploadMedia(q.uploadedImageFile);
-                        mediasToUpload.push({
-                            question_id: q.question_id,
-                            media_type: 'image',
-                            file_path: mediaResponse.file_path || mediaResponse.url
-                        });
-                    } catch (err) {
-                        console.error('이미지 업로드 실패:', err);
-                    }
-                }
-            }
-
-            // 2. 포스트 생성
             const payload = {
-                tmdb_id: movie.id,
+                tmdb_id: Number(movie.id),
                 title: postTitle || `${movie.title} 감상`,
-                rating: rating || undefined,
-                emojis_id: selectedEmojiId || undefined,
+                // [평점 수정] rating이 존재하고 0보다 클 때만 숫자로 변환해서 전송
+                rating: (rating && rating > 0) ? Number(rating) : undefined,
+                emojis_id: selectedEmojiId ? Number(selectedEmojiId) : undefined,
                 visibility: mapPrivacy(privacy),
                 spoiler: !!hasSpoiler,
                 watch_date: watchDate,
-                answers: questions
-                    .filter(q => q.answer && q.answer.trim() !== '' && q.question_id)
-                    .map(q => ({ question_id: q.question_id, answer: q.answer })),
-                medias: mediasToUpload,
+                answers: validAnswers,
+                medias: [],
             };
 
-            const data = await createPost(payload);
-            onSubmit(data);
+            console.log('📤 포스트 생성 데이터:', payload); // 콘솔에서 rating 값이 제대로 들어있는지 확인해보세요!
+
+            const postResponse = await createPost(payload);
+            const postId = postResponse.post_id;
+
+            // 이미지 업로드 로직
+            const questionsWithImages = questions.filter(q => q.uploadedImageFile && q.question_id);
+            if (questionsWithImages.length > 0) {
+                await Promise.all(questionsWithImages.map(async (q) => {
+                    try {
+                        await uploadMediaAfterPost(postId, Number(q.question_id), q.uploadedImageFile);
+                    } catch (err) {
+                        console.error(`❌ 이미지 업로드 실패 (QID: ${q.question_id}):`, err);
+                    }
+                }));
+            }
+
+            onSubmit(postResponse);
+
         } catch (e) {
-            console.error(e);
-            alert('포스트 작성 중 오류가 발생했습니다.');
+            console.error('❌ 작성 실패:', e);
+            alert(`포스트 작성 실패: ${e.message}`);
         } finally {
             setSubmitting(false);
         }
@@ -223,7 +270,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         })();
     }, []);
 
-    const mainQ = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
+    const mainQ = questions.find(q => q.question.includes('자유롭게'));
     const canSubmit = (mainQ?.answer && mainQ.answer.trim() !== '');
 
     return (
