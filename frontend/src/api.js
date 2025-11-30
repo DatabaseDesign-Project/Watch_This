@@ -324,8 +324,6 @@ export const getPostDetail = async (postId) => {
 
 // [추가] TMDB ID로 영화 상세 정보(포스터, 감독 등) 조회
 // GET /api/movies/detail/{tmdb_id}
-// src/api.js 파일 맨 아래에 기존 것을 지우고 이걸로 바꿔주세요!
-
 // [수정] TMDB ID로 영화 상세 정보 조회 (jfetch 사용 필수)
 export function getMovieDetail(tmdbId) {
   // jfetch가 자동으로 '/api'를 붙여주므로 '/movies/detail/...'로 시작해야 합니다.
