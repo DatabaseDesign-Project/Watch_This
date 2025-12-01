@@ -7,7 +7,6 @@ import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import FriendsButton from '../../components/FriendsButton';
 import PostCard from '../../components/PostCard';
-import PostDetail from '../post/PostDetail';
 import { getProfile, getUserPosts, getFriends } from '../../api';
 
 function Profile() {
@@ -17,7 +16,6 @@ function Profile() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -29,17 +27,12 @@ function Profile() {
         setUser(currentUser);
         
         const userPosts = await getUserPosts(currentUser.id);
-        console.log('🔍 프로필 - 원본 포스트 데이터:', userPosts);
         const mapped = Array.isArray(userPosts)
           ? userPosts.map(p => {
-              console.log('🔍 프로필 - 개별 포스트:', p);
               const posterImage = p.movie?.poster_image || p.movie?.poster || null;
               const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
               const image = posterImage || questionMedia || null;
               const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
-
-              console.log('🔍 이미지 정보:', { posterImage, questionMedia, image });
-              console.log('🔍 설명:', description);
 
               return {
                 id: p.post_id || p.id,
@@ -58,7 +51,6 @@ function Profile() {
               };
             })
           : [];
-        console.log('🔍 프로필 - 매핑된 포스트:', mapped);
         setPosts(mapped);
         
         // 친구 수를 실제 친구 목록 길이로 설정
@@ -92,26 +84,9 @@ function Profile() {
   };
 
   const handlePostClick = (post) => {
-    setSelectedPostId(post.id);
+    navigate(`/post/${post.id}`);
   };
-
-  const handleBackFromDetail = () => {
-    setSelectedPostId(null);
-  };
-
-  if (selectedPostId) {
-    return (
-      <div className="fullscreen">
-        <div className="mobile-container">
-          <MobileStatusBar />
-          <PostDetail postId={selectedPostId} onBack={handleBackFromDetail} />
-        </div>
-      </div>
-    );
-  }
-
-
-
+  
   // 로딩 중일 때 표시할 컴포넌트
   if (loading) {
     return (

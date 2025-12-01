@@ -4,7 +4,6 @@ import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import PostWriting from '../../components/PostWriting';
 import PostCard from '../../components/PostCard';
-import PostDetail from '../post/PostDetail';
 import { getMoviePostsByTmdb, getMovieDetail } from '../../api';
 import emptyImg from '../../assets/empty-img.png';
 
@@ -19,7 +18,6 @@ export default function MovieDetailPage() {
   const [loading, setLoading] = useState(!location.state?.movie);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [showPostWriting, setShowPostWriting] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState(null);
 
   // 영화 정보 로드 (state로 전달받지 못한 경우에만)
   useEffect(() => {
@@ -90,8 +88,6 @@ export default function MovieDetailPage() {
           // TMDB ID를 사용하는 경우 (기본)
           postsData = await getMoviePostsByTmdb(id, { limit: 10 });
         }
-        
-        console.log('🎬 영화 - 원본 포스트 데이터:', postsData);
 
         // 홈 피드와 동일한 데이터 매핑
         const mapped = Array.isArray(postsData)
@@ -119,7 +115,6 @@ export default function MovieDetailPage() {
             })
           : [];
 
-        console.log('🎬 영화 - 매핑된 포스트:', mapped);
         setPosts(mapped);
       } catch (e) {
         console.error('포스트 로드 실패:', e);
@@ -209,11 +204,7 @@ export default function MovieDetailPage() {
   };
 
   const handlePostClick = (post) => {
-    setSelectedPostId(post.id);
-  };
-
-  const handleBackFromDetail = () => {
-    setSelectedPostId(null);
+    navigate(`/post/${post.id}`);
   };
 
   // 추가 정보 포맷터
@@ -250,17 +241,6 @@ export default function MovieDetailPage() {
               <p>영화를 찾을 수 없습니다.</p>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (selectedPostId) {
-    return (
-      <div className="fullscreen">
-        <div className="mobile-container">
-          <MobileStatusBar />
-          <PostDetail postId={selectedPostId} onBack={handleBackFromDetail} />
         </div>
       </div>
     );

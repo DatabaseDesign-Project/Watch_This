@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import BottomNavigation from '../../components/BottomNavigation';
@@ -8,11 +9,14 @@ import { Button } from '../../components/Button';
 import { getNotifications, markNotificationRead, getFriendRequests } from '../../api';
 
 const Notification = () => {
+  const navigate = useNavigate();
   const [showFriendRequest, setShowFriendRequest] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
-  const handleNotificationClick = async (id, isRead) => {
+  const handleNotificationClick = async (notification) => {
+    const { id, isRead, type, message } = notification;
+
     // 알림 클릭: 읽음 처리 및 UI 업데이트 (회색 처리)
     if (!isRead) {
       try {
@@ -22,6 +26,16 @@ const Notification = () => {
       }
     }
     setNotifications((prev) => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+
+    // 좋아요나 댓글 알림인 경우 해당 포스트로 이동
+    if ((type === 'like' || type === 'comment') && message) {
+      // message 형식: "post_id:123" 또는 "post_id:123|댓글 내용"
+      const match = message.match(/post_id:(\d+)/);
+      if (match) {
+        const postId = match[1];
+        navigate(`/post/${postId}`);
+      }
+    }
   };
 
   const handleFriendRequestClick = () => {
@@ -106,7 +120,7 @@ const Notification = () => {
                     key={notification.id}
                     className={`list-item notification-item ${notification.isRead ? 'read' : 'unread'} ${notification.message ? 'with-message' : ''}`}
                     onClick={() => {
-                      handleNotificationClick(notification.id, notification.isRead);
+                      handleNotificationClick(notification);
                       // if it's a friend request notification, open the friend request view
                       if (notification.type === 'friend_request') {
                         handleFriendRequestClick();
@@ -119,11 +133,17 @@ const Notification = () => {
                           <p className="notification-text">
                             {senderName}님이 댓글을 달았어요.
                           </p>
-                          {notification.message && (
-                            <p className="notification-message">
-                              {notification.message}
-                            </p>
-                          )}
+                          {notification.message && (() => {
+                            // message에서 "post_id:123|" 부분을 제거하고 댓글 내용만 추출
+                            const commentText = notification.message.includes('|')
+                              ? notification.message.split('|')[1]
+                              : '';
+                            return commentText && (
+                              <p className="notification-message">
+                                {commentText}
+                              </p>
+                            );
+                          })()}
                         </>
                       ) : notification.type === 'friend_request' ? (
                         <p className="notification-text">

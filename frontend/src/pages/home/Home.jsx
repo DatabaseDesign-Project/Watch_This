@@ -137,7 +137,11 @@ export default function App() {
         )}
 
         {currentView === 'postDetail' && selectedPostId && (
-          <PostDetail postId={selectedPostId} onBack={handleBackToFeed} />
+          <PostDetail
+            postId={selectedPostId}
+            onBack={handleBackToFeed}
+            useStandaloneLayout={false}
+          />
         )}
       </div>
     </div>

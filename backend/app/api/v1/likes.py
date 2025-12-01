@@ -7,7 +7,7 @@ from app.core.deps import get_current_user_id
 router = APIRouter()
 
 # ====== 알림 best-effort ======
-async def _push_like_notification(sender_id: int, receiver_id: int):
+async def _push_like_notification(sender_id: int, receiver_id: int, post_id: int):
     if sender_id == receiver_id:
         return
     try:
@@ -16,7 +16,7 @@ async def _push_like_notification(sender_id: int, receiver_id: int):
                 "sender_id": sender_id,
                 "reciver_id": receiver_id,
                 "type": "like",
-                "message": "내 게시글을 좋아합니다.",
+                "message": f"post_id:{post_id}",
             }
         )
     except Exception:
@@ -57,7 +57,7 @@ async def like_post(
             new_cnt = int(getattr(fresh, "like_cnt", 0)) + 1
             await tx.posts.update(where={"post_id": post_id}, data={"like_cnt": new_cnt})
 
-    await _push_like_notification(sender_id=user_id, receiver_id=int(post.user_id))
+    await _push_like_notification(sender_id=user_id, receiver_id=int(post.user_id), post_id=post_id)
 
 
 # ====== 좋아요 취소(멱등) ======

@@ -10,7 +10,7 @@ router = APIRouter()
 
 # ====== 헬퍼 ======
 
-async def _push_notification(sender_id: int, receiver_id: int, message: str):
+async def _push_notification(sender_id: int, receiver_id: int, post_id: int, message: str):
     if sender_id == receiver_id:
         return
     try:
@@ -19,7 +19,7 @@ async def _push_notification(sender_id: int, receiver_id: int, message: str):
                 "sender_id": sender_id,
                 "reciver_id": receiver_id,
                 "type": "comment",
-                "message": message[:255] if message else None,
+                "message": f"post_id:{post_id}|{message[:200]}" if message else f"post_id:{post_id}",
             }
         )
     except Exception:
@@ -69,7 +69,8 @@ async def create_comment(
     await _push_notification(
         sender_id=user_id,
         receiver_id=int(post.user_id),
-        message="내 게시글에 댓글이 달렸습니다.",
+        post_id=post_id,
+        message=payload.body,
     )
 
     return {"id": c.id}
