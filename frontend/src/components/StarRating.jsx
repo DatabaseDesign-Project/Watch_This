@@ -38,7 +38,7 @@ export default function StarRating({
             icon={
                 <Star
                     sx={{
-                        color: 'currentColor',          // 부모 color를 채움색으로 사용
+                        color: 'var(--color-accent)',    // 안쪽도 테두리 색으로 채우기
                         stroke: 'var(--color-accent)',   // 테두리 색
                         strokeWidth: 1.5,
                         ...sx,
