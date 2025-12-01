@@ -293,7 +293,7 @@ async def feed(
         where=where_clause,
         order=[{"created_at": "desc"}, {"post_id": "desc"}],
         take=limit,
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True,  "movie": True },
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True, "comments": True},
     )
     # backfill `liked` boolean per post for current_user_id (batch)
     try:
@@ -342,7 +342,7 @@ async def get_post(
 ):
     post = await db.posts.find_unique(
         where={"post_id": post_id},
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True, "comments": True},
     )
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
@@ -435,7 +435,7 @@ async def list_user_posts(
         where=base,
         order={"created_at": "desc"},
         take=limit,
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True, "comments": True},
     )
     try:
         post_ids = [int(r.post_id) for r in rows]
