@@ -4,6 +4,7 @@ import { toggleLike } from '../api';
 export default function PostCard({ post, onClick }) {
   const [liked, setLiked] = useState(post.liked || false);
   const [likes, setLikes] = useState(post.likes || 0);
+  const [isLiking, setIsLiking] = useState(false);
 
   const formatDate = (value) => {
     if (!value) return '';
@@ -18,14 +19,27 @@ export default function PostCard({ post, onClick }) {
 
   const handleLike = async (e) => {
     e.stopPropagation();
+    e.preventDefault();
+    
+    if (isLiking) return; // 이미 처리 중이면 무시
+    
+    const previousLiked = liked;
+    const previousLikes = likes;
+    
+    setIsLiking(true);
+    // 낙관적 업데이트 (Optimistic Update)
+    setLiked(!previousLiked);
+    setLikes(previousLiked ? Math.max(0, previousLikes - 1) : previousLikes + 1);
+    
     try {
-      await toggleLike(post.id, liked);
-      setLiked((prev) => {
-        setLikes((n) => (prev ? Math.max(0, n - 1) : n + 1));
-        return !prev;
-      });
+      await toggleLike(post.id, previousLiked);
     } catch (err) {
       console.error('좋아요 실패', err);
+      // 실패 시 원래 상태로 복구
+      setLiked(previousLiked);
+      setLikes(previousLikes);
+    } finally {
+      setIsLiking(false);
     }
   };
 

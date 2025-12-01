@@ -26,6 +26,7 @@ export default function PostDetail({ postId, onBack, onEditPost }) {
     const [comments, setComments] = useState([]);
     const [commentText, setCommentText] = useState('');
     const [isLiked, setIsLiked] = useState(false);
+    const [isLiking, setIsLiking] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
@@ -94,17 +95,32 @@ export default function PostDetail({ postId, onBack, onEditPost }) {
     };
 
     const handleLike = async () => {
-        if (!post) return;
+        if (!post || isLiking) return; // 이미 처리 중이면 무시
+        
+        const previousLiked = isLiked;
+        const previousCount = post.like_cnt || 0;
+        
+        setIsLiking(true);
         try {
-            const nextState = !isLiked;
-            await toggleLike(postId, isLiked);
+            const nextState = !previousLiked;
+            // 낙관적 업데이트
             setIsLiked(nextState);
             setPost(prev => ({
                 ...prev,
-                like_cnt: nextState ? ((prev.like_cnt || 0) + 1) : Math.max(0, (prev.like_cnt || 0) - 1)
+                like_cnt: nextState ? (previousCount + 1) : Math.max(0, previousCount - 1)
             }));
+            
+            await toggleLike(postId, previousLiked);
         } catch (e) {
             console.error('Like failed', e);
+            // 실패 시 원래 상태로 복구
+            setIsLiked(previousLiked);
+            setPost(prev => ({
+                ...prev,
+                like_cnt: previousCount
+            }));
+        } finally {
+            setIsLiking(false);
         }
     };
 
