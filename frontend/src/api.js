@@ -250,6 +250,20 @@ export async function createPost(payload) {
   return jfetch('/v1/posts/', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+// PATCH /api/v1/posts/{post_id} - update a post
+export async function updatePost(postId, payload) {
+  return jfetch(`/v1/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+}
+
+// DELETE /api/v1/posts/{post_id} - delete a post
+export async function deletePost(postId) {
+  const userId = getUserId();
+  return jfetch(`/v1/posts/${postId}`, {
+    method: 'DELETE',
+    body: JSON.stringify(parseInt(userId))
+  });
+}
+
 // GET /api/movies/search?q=...&page=1
 export async function searchMoviesTmdb(q, page = 1) {
   const qs = `?q=${encodeURIComponent(q)}&page=${encodeURIComponent(page)}`;
