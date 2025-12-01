@@ -1886,37 +1886,20 @@ html, body, #root {
   margin-bottom: 8px;
 }
 
-/* 댓글 알림 텍스트 */
-.notification-main-text {
+/* 알림 텍스트 (통합) */
+.notification-text {
   font-family: 'Pretendard', sans-serif;
   font-size: 12px;
-  font-weight: 400;
-  line-height: 1.21em;
+  font-weight: 600;
+  line-height: 1.19em;
   margin: 0 0 6px 0;
 }
 
-.notification-item.unread .notification-main-text {
+.notification-item.unread .notification-text {
   color: var(--color-primary);
 }
 
-.notification-item.read .notification-main-text {
-  color: var(--btn-color-Ghost);
-}
-
-/* 좋아요 알림 텍스트 (볼드) */
-.notification-like {
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 1.19em;
-  margin: 0;
-}
-
-.notification-item.unread .notification-like {
-  color: var(--color-primary);
-}
-
-.notification-item.read .notification-like {
+.notification-item.read .notification-text {
   color: var(--btn-color-Ghost);
 }
 
@@ -1962,13 +1945,13 @@ html, body, #root {
 /* 댓글 알림 - 긴 텍스트 */
 .notification-item.with-message {
   padding: 14px 11px 20px;
-  min-height: 80px;
+  min-height: 25px;
 }
 
 /* 좋아요 알림 - 짧은 텍스트 */
 .notification-item:not(.with-message) {
   padding: 14px 11px;
-  min-height: 38px;
+  min-height: 25px;
 }
 
 

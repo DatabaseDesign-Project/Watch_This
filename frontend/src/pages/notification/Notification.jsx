@@ -116,26 +116,26 @@ const Notification = () => {
                     <div className="notification-content">
                       {notification.type === 'comment' ? (
                         <>
-                          <p className="notification-main-text text-base font-inter">
+                          <p className="notification-text">
                             {senderName}님이 댓글을 달았어요.
                           </p>
                           {notification.message && (
-                            <p className="notification-message text-base font-inter">
+                            <p className="notification-message">
                               {notification.message}
                             </p>
                           )}
                         </>
                       ) : notification.type === 'friend_request' ? (
-                        <p className="notification-friend text-base font-semibold font-pretendard">
+                        <p className="notification-text">
                           {senderName}님이 친구 요청을 보냈어요.
                         </p>
                       ) : notification.type === 'like' ? (
-                        <p className="notification-like text-base font-semibold font-pretendard">
+                        <p className="notification-text">
                           {senderName}님이 좋아요를 눌렀어요.
                         </p>
                       ) : (
                         // fallback: show provided message or a generic text
-                        <p className="notification-generic text-base font-inter">
+                        <p className="notification-text">
                           {notification.message || `${senderName}님으로부터 알림이 있습니다.`}
                         </p>
                       )}
