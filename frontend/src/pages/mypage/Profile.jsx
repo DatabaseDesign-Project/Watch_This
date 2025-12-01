@@ -7,7 +7,7 @@ import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import FriendsButton from '../../components/FriendsButton';
 import PostCard from '../../components/PostCard';
-import PostDetail from '../../components/PostDetail';
+import PostDetail from '../post/PostDetail';
 import { getProfile, getUserPosts, getFriends } from '../../api';
 
 function Profile() {

@@ -16,6 +16,9 @@ import MovieDetailPage from "./pages/search/MovieDetailPage";
 import Notification from "./pages/notification/Notification";
 import FriendRequest from "./pages/notification/FriendRequest";
 
+// 포스트
+import PostDetail from "./pages/post/PostDetail";
+
 import "./index.css";
 
 createRoot(document.getElementById("root")).render(
@@ -38,6 +41,9 @@ createRoot(document.getElementById("root")).render(
 
         {/* 영화 */}
         <Route path="/movie/:id" element={<MovieDetailPage />} />
+
+        {/* 포스트 */}
+        <Route path="/post/:id" element={<PostDetail />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

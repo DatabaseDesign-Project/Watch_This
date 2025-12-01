@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import Header from '../../components/Header';
@@ -7,9 +8,10 @@ import BottomNavigation from '../../components/BottomNavigation';
 import FloatingActionButton from '../../components/FloatingActionButton';
 import MovieSearch from '../../components/MovieSearch';
 import PostWriting from '../../components/PostWriting';
-import PostDetail from '../../components/PostDetail';
+import PostDetail from '../post/PostDetail';
 
 export default function App() {
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('feed');
   const [activeTab, setActiveTab] = useState('home');
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -30,10 +32,8 @@ export default function App() {
         return;
       }
       const data = await res.json();
-      console.log('🏠 홈 - 원본 포스트 데이터:', data);
 
       const mapped = (data || []).map((p) => {
-        console.log('🏠 홈 - 개별 포스트:', p);
         const posterImage = p.movie?.poster_image || p.movie?.poster || null;
         const questionMedia =
           Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
@@ -41,9 +41,6 @@ export default function App() {
         const description = Array.isArray(p.answers)
           ? p.answers.map((a) => a.answer).join('\n')
           : '';
-
-        console.log('🏠 이미지 정보:', { posterImage, questionMedia, image });
-        console.log('🏠 설명:', description);
 
         return {
           id: p.post_id,
@@ -62,7 +59,6 @@ export default function App() {
         };
       });
 
-      console.log('🏠 홈 - 매핑된 포스트:', mapped);
       setPosts(mapped);
     } catch (err) {
       console.error('feed fetch failed', err);
@@ -82,8 +78,7 @@ export default function App() {
   };
 
   const handlePostClick = (post) => {
-    setSelectedPostId(post.id);
-    setCurrentView('postDetail');
+    navigate(`/post/${post.id}`);
   };
 
   const handleMovieSelect = (movie) => {

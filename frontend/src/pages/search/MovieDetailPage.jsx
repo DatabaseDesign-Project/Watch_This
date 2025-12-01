@@ -4,7 +4,7 @@ import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
 import PostWriting from '../../components/PostWriting';
 import PostCard from '../../components/PostCard';
-import PostDetail from '../../components/PostDetail';
+import PostDetail from '../post/PostDetail';
 import { getMoviePostsByTmdb, getMovieDetail } from '../../api';
 import emptyImg from '../../assets/empty-img.png';
 
