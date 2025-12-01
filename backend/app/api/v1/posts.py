@@ -127,7 +127,21 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
     # genres_list = tmdb.get("genres", [])
     # genre_str = ", ".join([g["name"] for g in genres_list]) if genres_list else ""
 
-    existing = await db.movies.find_first(where={"title": title, "release_date": release_dt})
+    # 제목과 개봉일로 검색 (더 정확한 매칭)
+    existing = await db.movies.find_first(
+        where={
+            "AND": [
+                {
+                    "OR": [
+                        {"title": title},
+                        {"original_title": original_title},
+                        {"title": original_title},
+                    ]
+                },
+                {"release_date": release_dt}
+            ]
+        }
+    )
     if existing:
         return int(existing.id)
 

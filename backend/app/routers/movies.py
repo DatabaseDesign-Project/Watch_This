@@ -218,6 +218,7 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
         raise HTTPException(status_code=504, detail=f"TMDB 요청 실패: {e}")
 
     title = tmdb.get("title") or tmdb.get("original_title") or "제목 없음"
+    original_title = tmdb.get("original_title") or title
     rd = tmdb.get("release_date") or None
     try:
         if rd and isinstance(rd, str) and rd:
@@ -227,7 +228,21 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
     except Exception:
         release_dt = _dt.utcnow()
 
-    existing = await db.movies.find_first(where={"title": title, "release_date": release_dt})
+    # 제목과 개봉일로 검색 (더 정확한 매칭)
+    existing = await db.movies.find_first(
+        where={
+            "AND": [
+                {
+                    "OR": [
+                        {"title": title},
+                        {"original_title": original_title},
+                        {"title": original_title},
+                    ]
+                },
+                {"release_date": release_dt}
+            ]
+        }
+    )
     if existing:
         return int(existing.id)
 

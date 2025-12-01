@@ -69,7 +69,28 @@ export default function MovieDetailPage() {
     const fetchPosts = async () => {
       try {
         setLoadingPosts(true);
-        const postsData = await getMoviePostsByTmdb(id, { limit: 10 });
+        
+        // location.state에서 fromDb 플래그 확인
+        const isDbId = location.state?.fromDb === true;
+        
+        let postsData;
+        if (isDbId) {
+          // DB movie ID를 사용하는 경우 (후기 많은 작품에서 온 경우)
+          const res = await fetch(`/api/movies/${id}/posts?limit=10`, {
+            headers: { 
+              'X-User-Id': localStorage.getItem('user_id') || '1',
+              'accept': 'application/json'
+            },
+          });
+          if (!res.ok) {
+            throw new Error(`포스트 로드 실패: ${res.status}`);
+          }
+          postsData = await res.json();
+        } else {
+          // TMDB ID를 사용하는 경우 (기본)
+          postsData = await getMoviePostsByTmdb(id, { limit: 10 });
+        }
+        
         console.log('🎬 영화 - 원본 포스트 데이터:', postsData);
 
         // 홈 피드와 동일한 데이터 매핑
@@ -136,7 +157,25 @@ export default function MovieDetailPage() {
     // 포스트 목록 새로고침
     try {
       setLoadingPosts(true);
-      const postsData = await getMoviePostsByTmdb(id, { limit: 10 });
+      
+      const isDbId = location.state?.fromDb === true;
+      let postsData;
+      
+      if (isDbId) {
+        const res = await fetch(`/api/movies/${id}/posts?limit=10`, {
+          headers: { 
+            'X-User-Id': localStorage.getItem('user_id') || '1',
+            'accept': 'application/json'
+          },
+        });
+        if (!res.ok) {
+          throw new Error(`포스트 로드 실패: ${res.status}`);
+        }
+        postsData = await res.json();
+      } else {
+        postsData = await getMoviePostsByTmdb(id, { limit: 10 });
+      }
+      
       const mapped = Array.isArray(postsData)
         ? postsData.map((p) => {
             const posterImage = p.movie?.poster_image || p.movie?.poster || null;
