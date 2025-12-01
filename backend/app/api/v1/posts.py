@@ -428,7 +428,7 @@ async def list_user_posts(
         where=base,
         order={"created_at": "desc"},
         take=limit,
-        include={"emoji": True, "movie": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
     )
     
     try:
@@ -450,7 +450,54 @@ async def list_user_posts(
 
 # from typing import List, Optional, Dict, Any, Set
 # from datetime import datetime
-# import time
+# import time@router.get("/users/{user_id}/posts")
+async def list_user_posts(
+    user_id: int,
+    visibility: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+    cursor_id: Optional[int] = Query(default=None),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    if visibility:
+        base: Dict[str, Any] = {"user_id": user_id, "visibility": visibility}
+    else:
+        or_clauses = await build_visibility_or(current_user_id)
+        base = {"AND": [{"user_id": user_id}, {"OR": or_clauses}]}
+
+    if cursor_id:
+        base = {"AND": [base, {"post_id": {"lt": cursor_id}}]}
+
+    rows = await db.posts.find_many(
+        where=base,
+        order={"created_at": "desc"},
+        take=limit,
+        include={
+            "user": True,
+            "answers": True,
+            "questionMedias": True,
+            "emoji": True,
+            "movie": True,
+        },
+    )
+    
+    try:
+        post_ids = [int(r.post_id) for r in rows]
+        liked_set = set()
+        if post_ids:
+            like_rows = await db.likes.find_many(
+                where={"user_id": current_user_id, "post_id": {"in": post_ids}}
+            )
+            liked_set = {int(r.post_id) for r in like_rows}
+            
+        encoded = jsonable_encoder(rows)
+        for idx, r in enumerate(rows):
+            val = int(r.post_id) in liked_set
+            encoded[idx]["liked"] = val
+            encoded[idx]["is_liked"] = val
+        return encoded
+    except Exception:
+        return rows
+
 # import json
 # import httpx
 

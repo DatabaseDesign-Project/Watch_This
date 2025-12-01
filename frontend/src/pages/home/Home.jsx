@@ -1,4 +1,3 @@
-// /pages/Home.jsx
 import { useState, useEffect } from 'react';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
@@ -8,152 +7,144 @@ import BottomNavigation from '../../components/BottomNavigation';
 import FloatingActionButton from '../../components/FloatingActionButton';
 import MovieSearch from '../../components/MovieSearch';
 import PostWriting from '../../components/PostWriting';
-import PostDetail from '../../components/PostDetail'; // [추가]
+import PostDetail from '../../components/PostDetail';
 
 export default function App() {
-    const [currentView, setCurrentView] = useState('feed'); // 'feed' | 'movieSearch' | 'postWriting' | 'postDetail'
-    const [activeTab, setActiveTab] = useState('home');
-    const [selectedMovie, setSelectedMovie] = useState(null);
-    const [selectedPostId, setSelectedPostId] = useState(null); // [추가] 선택된 포스트 ID
-    const [posts, setPosts] = useState([]);
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const minimal = urlParams.get('minimal') === '1';
+  const [currentView, setCurrentView] = useState('feed');
+  const [activeTab, setActiveTab] = useState('home');
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [posts, setPosts] = useState([]);
 
-    const fetchFeed = async () => {
-        try {
-            const uid = localStorage.getItem('user_id') || '1';
-            const res = await fetch('/api/v1/posts/feed', {
-                headers: { 'X-User-Id': uid },
-            });
-            if (!res.ok) {
-                console.error('feed fetch failed', res.status);
-                return;
-            }
-            const data = await res.json();
-            console.log('Feed data:', data); // 디버깅을 위한 로그
-            const mapped = (data || []).map((p) => {
-                // 영화 포스터 처리
-                let posterImage = null;
-                if (p.movie?.poster_image) {
-                    posterImage = p.movie.poster_image;
-                } else if (p.questionMedias && p.questionMedias[0]) {
-                    posterImage = p.questionMedias[0].file_path;
-                }
+  const urlParams = new URLSearchParams(window.location.search);
+  const minimal = urlParams.get('minimal') === '1';
 
-                return {
-                    id: p.post_id,
-                    category: p.user?.nickname || '익명',
-                    title: p.title || '',
-                    description: (p.answers || []).map((a) => a.answer).join('\n'),
-                    image: posterImage,
-                    likes: p.like_cnt || 0,
-                    comments: (p.comments || []).length || 0,
-                    liked: p.liked || p.is_liked || false,
-                    emoji: p.emoji?.emoji_image || null,
-                };
-            });
-            setPosts(mapped);
-        } catch (e) {
-            console.error(e);
-        }
-    };
+  const fetchFeed = async () => {
+    try {
+      const uid = localStorage.getItem('user_id') || '1';
+      const res = await fetch('/api/v1/posts/feed', {
+        headers: { 'X-User-Id': uid },
+      });
+      if (!res.ok) {
+        console.error('feed fetch failed', res.status);
+        return;
+      }
+      const data = await res.json();
+      console.log('🏠 홈 - 원본 포스트 데이터:', data);
 
-    useEffect(() => {
-        if (currentView === 'feed') fetchFeed();
-    }, [currentView]);
+      const mapped = (data || []).map((p) => {
+        console.log('🏠 홈 - 개별 포스트:', p);
+        const posterImage = p.movie?.poster_image || p.movie?.poster || null;
+        const questionMedia =
+          Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
+        const image = posterImage || questionMedia || null;
+        const description = Array.isArray(p.answers)
+          ? p.answers.map((a) => a.answer).join('\n')
+          : '';
 
-    const handleFabClick = () => {
-        setCurrentView('movieSearch');
-    };
+        console.log('🏠 이미지 정보:', { posterImage, questionMedia, image });
+        console.log('🏠 설명:', description);
 
-    const handleBackToFeed = () => {
-        setCurrentView('feed');
-        setSelectedMovie(null);
-        setSelectedPostId(null);
-    };
+        return {
+          id: p.post_id,
+          category: p.user?.nickname || '익명',
+          movieTitle: p.movie?.title || p.movie?.korean_title || '',
+          title: p.title || '',
+          description,
+          image,
+          likes: p.like_cnt || 0,
+          comments: (p.comments || []).length || 0,
+          liked: p.liked || p.is_liked || false,
+          emoji: p.emoji?.emoji_image || null,
+          createdAt: p.created_at,
+          isSpoiler: Boolean(p.is_spoiler),
+          showPlaceholderImage: !image,
+        };
+      });
 
-    // [추가] 포스트 클릭 시 상세 페이지로 이동
-    const handlePostClick = (post) => {
-        setSelectedPostId(post.id);
-        setCurrentView('postDetail');
-    };
+      console.log('🏠 홈 - 매핑된 포스트:', mapped);
+      setPosts(mapped);
+    } catch (err) {
+      console.error('feed fetch failed', err);
+    }
+  };
 
-    const handleMovieSelect = (movie) => {
-        setSelectedMovie(movie);
-        setCurrentView('postWriting');
-    };
+  useEffect(() => {
+    if (currentView === 'feed') fetchFeed();
+  }, [currentView]);
 
-    const handleBackToSearch = () => {
-        setCurrentView('movieSearch');
-    };
+  const handleFabClick = () => setCurrentView('movieSearch');
 
-    const handleSubmitPost = async (postResponse) => {
-        console.log('포스트 작성 응답:', postResponse);
-        setCurrentView('feed');
-        setSelectedMovie(null);
-        await fetchFeed();
-    };
+  const handleBackToFeed = () => {
+    setCurrentView('feed');
+    setSelectedMovie(null);
+    setSelectedPostId(null);
+  };
 
-    return (
-        <div className="fullscreen">
-            <div className="mobile-container">
-                <MobileStatusBar />
+  const handlePostClick = (post) => {
+    setSelectedPostId(post.id);
+    setCurrentView('postDetail');
+  };
 
-                {currentView === 'feed' && (
-                    <>
-                        <Header title="이거봤어" variant="search" />
+  const handleMovieSelect = (movie) => {
+    setSelectedMovie(movie);
+    setCurrentView('postWriting');
+  };
 
-                        <div className="content-container main-content scrollable-container" style={{
-                            height: 'calc(100vh - 60px - 60px)', 
-                            overflowY: 'auto',
-                            paddingBottom: '20px'
-                        }}>
-                            {posts.map((post) => (
-                                <PostCard 
-                                    key={post.id} 
-                                    post={post} 
-                                    minimal={minimal} 
-                                    onClick={handlePostClick} // [추가] 핸들러 전달
-                                />
-                            ))}
-                        </div>
+  const handleBackToSearch = () => setCurrentView('movieSearch');
 
-                        {!minimal && (
-                            <>
-                                <FloatingActionButton onClick={handleFabClick} />
-                                <BottomNavigation
-                                    activeTab={activeTab}
-                                    onTabChange={setActiveTab}
-                                />
-                            </>
-                        )}
-                    </>
-                )}
+  const handleSubmitPost = async () => {
+    setCurrentView('feed');
+    setSelectedMovie(null);
+    await fetchFeed();
+  };
 
-                {currentView === 'movieSearch' && (
-                    <MovieSearch
-                        onBack={handleBackToFeed}
-                        onMovieSelect={handleMovieSelect}
-                    />
-                )}
+  return (
+    <div className="fullscreen">
+      <div className="mobile-container">
+        <MobileStatusBar />
 
-                {currentView === 'postWriting' && selectedMovie && (
-                    <PostWriting
-                        movie={selectedMovie}
-                        onBack={handleBackToSearch}
-                        onSubmit={handleSubmitPost}
-                    />
-                )}
+        {currentView === 'feed' && (
+          <>
+            <Header title="이거봤어" variant="home" />
 
-                {/* [추가] 상세 페이지 렌더링 */}
-                {currentView === 'postDetail' && selectedPostId && (
-                    <PostDetail
-                        postId={selectedPostId}
-                        onBack={handleBackToFeed}
-                    />
-                )}
+            <div className="content-container scrollable-container home-feed-content">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} onClick={handlePostClick} />
+              ))}
             </div>
-        </div>
-    );
+
+            {!minimal && (
+              <>
+                <FloatingActionButton onClick={handleFabClick} />
+                <BottomNavigation
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {currentView === 'movieSearch' && (
+          <MovieSearch
+            onBack={handleBackToFeed}
+            onMovieSelect={handleMovieSelect}
+          />
+        )}
+
+        {currentView === 'postWriting' && selectedMovie && (
+          <PostWriting
+            movie={selectedMovie}
+            onBack={handleBackToSearch}
+            onSubmit={handleSubmitPost}
+          />
+        )}
+
+        {currentView === 'postDetail' && selectedPostId && (
+          <PostDetail postId={selectedPostId} onBack={handleBackToFeed} />
+        )}
+      </div>
+    </div>
+  );
 }

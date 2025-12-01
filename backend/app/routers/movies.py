@@ -284,7 +284,7 @@ async def list_movie_posts_proxy(
         where=where_clause,
         order=order,
         take=limit,
-        include={"user": True, "emoji": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
     )
     # attach liked boolean for current_user_id
     try:
@@ -337,7 +337,7 @@ async def list_movie_posts_by_tmdb(
         where=where_clause,
         order=order,
         take=limit,
-        include={"user": True, "emoji": True},
+        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
     )
     # attach liked for current user
     try:

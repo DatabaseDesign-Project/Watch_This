@@ -11,7 +11,7 @@ export default function Header({
     const getHeaderClass = () => {
         switch (variant) {
             case 'home':
-                return 'header';
+                return 'app-header app-header-search';
             case 'search':
                 return 'app-header app-header-search';
             default:
@@ -22,7 +22,7 @@ export default function Header({
     const getTitleClass = () => {
         switch (variant) {
             case 'home':
-                return 'header-title';
+                return 'app-title app-title-search';
             case 'search':
                 return 'app-title app-title-search';
             default:
@@ -45,32 +45,13 @@ export default function Header({
                     </svg>
                 </button>
             )}
-            
-            {variant === 'home' ? (
-                <>
-                    <div className="header-title">
-                        {showLogo && (
-                            <div className="header-logo">
-                                W
-                            </div>
-                        )}
-                        {title}
-                    </div>
-                    <div className="header-right-action">
-                        {rightAction}
-                    </div>
-                </>
-            ) : (
-                <>
-                    <h1 className={getTitleClass()}>
-                        {title}
-                    </h1>
-                    {rightAction && (
-                        <div className="header-right-action">
-                            {rightAction}
-                        </div>
-                    )}
-                </>
+            <h1 className={getTitleClass()}>
+                {title}
+            </h1>
+            {rightAction && (
+                <div className="header-right-action">
+                    {rightAction}
+                </div>
             )}
         </header>
     );
