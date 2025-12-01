@@ -308,23 +308,59 @@ async def feed(
         where=where_clause,
         order=[{"created_at": "desc"}, {"post_id": "desc"}],
         take=limit,
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
+        include={
+            "user": True,
+            "answers": {"include": {"question": True}},
+            "questionMedias": True,
+            "emoji": True,
+            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}}
+        },
     )
-    
+
     try:
         post_ids = [int(p.post_id) for p in posts]
         liked_set = set()
         if post_ids:
             like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
             liked_set = {int(r.post_id) for r in like_rows}
-            
+
+        # 모든 포스트의 평점 정보 배치 조회
+        rating_map = {}
+        if posts:
+            user_movie_pairs = [(int(p.user_id), int(p.movie_id)) for p in posts if p.movie_id]
+            if user_movie_pairs:
+                # 각 사용자-영화 조합에 대한 평점 조회
+                for user_id, movie_id in user_movie_pairs:
+                    try:
+                        rating_record = await db.ratings.find_unique(
+                            where={"user_id_movie_id": {"user_id": user_id, "movie_id": movie_id}}
+                        )
+                        if rating_record:
+                            rating_map[(user_id, movie_id)] = float(rating_record.rating)
+                    except Exception:
+                        pass
+
         encoded = jsonable_encoder(posts)
         for idx, p in enumerate(posts):
             val = int(p.post_id) in liked_set
             encoded[idx]["liked"] = val
             encoded[idx]["is_liked"] = val
+
+            # 평점 추가
+            user_id = int(p.user_id)
+            movie_id = int(p.movie_id) if p.movie_id else None
+            if movie_id and (user_id, movie_id) in rating_map:
+                encoded[idx]["rating"] = rating_map[(user_id, movie_id)]
+
+            # 장르 정보를 movie 객체에 추가
+            if encoded[idx].get("movie") and encoded[idx]["movie"].get("movie_genres"):
+                genres = [mg["genre"]["name"] for mg in encoded[idx]["movie"]["movie_genres"] if mg.get("genre")]
+                encoded[idx]["movie"]["genres"] = [{"name": g} for g in genres]
+                encoded[idx]["movie"]["genre"] = ", ".join(genres) if genres else None
+
         return encoded
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ 피드 조회 에러: {e}")
         return posts
 
 
@@ -338,21 +374,48 @@ async def get_post(
 ):
     post = await db.posts.find_unique(
         where={"post_id": post_id},
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
+        include={
+            "user": True,
+            "answers": {"include": {"question": True}},
+            "questionMedias": True,
+            "emoji": True,
+            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}}
+        },
     )
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
-    
+
     await ensure_post_visible(post, current_user_id)
-    
+
     try:
+        # 좋아요 정보 조회
         exists = await db.likes.find_unique(where={"user_id_post_id": {"user_id": current_user_id, "post_id": post_id}})
         val = bool(exists)
+
+        # 평점 정보 조회
+        rating_record = None
+        if post.movie_id:
+            rating_record = await db.ratings.find_unique(
+                where={"user_id_movie_id": {"user_id": int(post.user_id), "movie_id": int(post.movie_id)}}
+            )
+
         encoded = jsonable_encoder(post)
         encoded["liked"] = val
         encoded["is_liked"] = val
+
+        # 평점 추가
+        if rating_record:
+            encoded["rating"] = float(rating_record.rating)
+
+        # 장르 정보를 movie 객체에 추가
+        if encoded.get("movie") and encoded["movie"].get("movie_genres"):
+            genres = [mg["genre"]["name"] for mg in encoded["movie"]["movie_genres"] if mg.get("genre")]
+            encoded["movie"]["genres"] = [{"name": g} for g in genres]
+            encoded["movie"]["genre"] = ", ".join(genres) if genres else None
+
         return encoded
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ 포스트 상세 조회 에러: {e}")
         return post
 
 
@@ -428,23 +491,58 @@ async def list_user_posts(
         where=base,
         order={"created_at": "desc"},
         take=limit,
-        include={"user": True, "answers": True, "questionMedias": True, "emoji": True, "movie": True},
+        include={
+            "user": True,
+            "answers": {"include": {"question": True}},
+            "questionMedias": True,
+            "emoji": True,
+            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}}
+        },
     )
-    
+
     try:
         post_ids = [int(r.post_id) for r in rows]
         liked_set = set()
         if post_ids:
             like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
             liked_set = {int(r.post_id) for r in like_rows}
-            
+
+        # 모든 포스트의 평점 정보 배치 조회
+        rating_map = {}
+        if rows:
+            user_movie_pairs = [(int(r.user_id), int(r.movie_id)) for r in rows if r.movie_id]
+            if user_movie_pairs:
+                for uid, mid in user_movie_pairs:
+                    try:
+                        rating_record = await db.ratings.find_unique(
+                            where={"user_id_movie_id": {"user_id": uid, "movie_id": mid}}
+                        )
+                        if rating_record:
+                            rating_map[(uid, mid)] = float(rating_record.rating)
+                    except Exception:
+                        pass
+
         encoded = jsonable_encoder(rows)
         for idx, r in enumerate(rows):
             val = int(r.post_id) in liked_set
             encoded[idx]["liked"] = val
             encoded[idx]["is_liked"] = val
+
+            # 평점 추가
+            uid = int(r.user_id)
+            mid = int(r.movie_id) if r.movie_id else None
+            if mid and (uid, mid) in rating_map:
+                encoded[idx]["rating"] = rating_map[(uid, mid)]
+
+            # 장르 정보를 movie 객체에 추가
+            if encoded[idx].get("movie") and encoded[idx]["movie"].get("movie_genres"):
+                genres = [mg["genre"]["name"] for mg in encoded[idx]["movie"]["movie_genres"] if mg.get("genre")]
+                encoded[idx]["movie"]["genres"] = [{"name": g} for g in genres]
+                encoded[idx]["movie"]["genre"] = ", ".join(genres) if genres else None
+
         return encoded
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ 유저 포스트 목록 조회 에러: {e}")
         return rows
     
 
