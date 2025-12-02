@@ -438,34 +438,155 @@ async def get_post(
 # =========================
 # 수정
 # =========================
+# 수정
+# =========================
 @router.patch("/{post_id}")
 async def update_post(post_id: int = Path(..., ge=1), payload: PostUpdate = Body(...)):
-    post = await db.posts.find_unique(where={"post_id": post_id})
+    """
+    포스트 수정 - 영화를 제외한 모든 항목 수정 가능
+    - 기본 정보: title, visibility, spoiler, emojis_id
+    - 평점: rating (ratings 테이블)
+    - 답변: answers (기존 답변 삭제 후 새로 생성, default question은 삭제 불가)
+    - 미디어: medias (기존 미디어 삭제 후 새로 생성)
+    """
+    post = await db.posts.find_unique(
+        where={"post_id": post_id},
+        include={"answers": True, "questionMedias": True}
+    )
     if not post:
         raise HTTPException(status_code=404, detail="존재하지 않는 포스트입니다.")
 
     if int(post.user_id) != int(payload.user_id):
         raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
 
-    data: Dict[str, Any] = {}
+    # 1. 기본 포스트 정보 수정
+    post_data: Dict[str, Any] = {}
     if payload.title is not None:
-        data["title"] = payload.title
+        post_data["title"] = payload.title
     if payload.visibility is not None:
-        data["visibility"] = payload.visibility
+        post_data["visibility"] = payload.visibility
     if payload.spoiler is not None:
-        data["has_spoiler"] = payload.spoiler
+        post_data["has_spoiler"] = payload.spoiler
     if payload.emojis_id is not None:
         if payload.emojis_id == 0:
-            data["emojis_id"] = None
+            post_data["emojis_id"] = None
         else:
-            data["emoji"] = {"connect": {"id": payload.emojis_id}}
+            post_data["emoji"] = {"connect": {"id": payload.emojis_id}}
 
-    if not data:
-        return {"message": "변경할 내용이 없습니다."}
+    post_data["updated_at"] = datetime.utcnow()
 
-    data["updated_at"] = datetime.utcnow()
+    if post_data:
+        await db.posts.update(where={"post_id": post_id}, data=post_data)
 
-    updated = await db.posts.update(where={"post_id": post_id}, data=data)
+    # 2. 평점 수정
+    if payload.rating is not None:
+        try:
+            rating_value = Decimal(str(payload.rating))
+            movie_id = int(post.movie_id)
+            user_id = int(post.user_id)
+            
+            existing_rating = await db.ratings.find_unique(
+                where={"user_id_movie_id": {"user_id": user_id, "movie_id": movie_id}}
+            )
+            
+            if existing_rating:
+                await db.ratings.update(
+                    where={"user_id_movie_id": {"user_id": user_id, "movie_id": movie_id}},
+                    data={"rating": rating_value}
+                )
+            else:
+                await db.ratings.create(
+                    data={"user_id": user_id, "movie_id": movie_id, "rating": rating_value}
+                )
+        except Exception as e:
+            print(f"⚠️ 평점 수정 실패: {e}")
+
+    # 3. 답변 수정 (기존 삭제 후 새로 생성)
+    if payload.answers is not None:
+        # 질문 ID 유효성 검증
+        answer_qids = [a.question_id for a in payload.answers]
+        await _ensure_valid_question_ids(answer_qids)
+        
+        # 기본 질문 확인 (자유롭게 작성하는 질문)
+        main_question = await db.questions.find_first(where={"content": {"contains": "자유롭게"}})
+        main_question_id = int(main_question.id) if main_question else None
+        
+        # 기존 답변 중 기본 질문이 아닌 것만 확인
+        existing_answer_qids = [int(a.question_id) for a in post.answers] if post.answers else []
+        
+        # 기본 질문이 삭제되는지 확인
+        if main_question_id:
+            has_main_in_existing = main_question_id in existing_answer_qids
+            has_main_in_new = main_question_id in answer_qids
+            
+            if has_main_in_existing and not has_main_in_new:
+                raise HTTPException(status_code=400, detail="기본 질문(자유롭게 작성)은 삭제할 수 없습니다.")
+        
+        # 기존 답변 모두 삭제
+        if post.answers:
+            for answer in post.answers:
+                try:
+                    await db.answers.delete(
+                        where={"post_id_question_id": {"post_id": post_id, "question_id": int(answer.question_id)}}
+                    )
+                except Exception as e:
+                    print(f"⚠️ 기존 답변 삭제 실패 (question_id={answer.question_id}): {e}")
+        
+        # 새 답변 생성
+        for a in payload.answers:
+            try:
+                await db.answers.create(
+                    data={
+                        "post_id": post_id,
+                        "question_id": a.question_id,
+                        "answer": a.answer,
+                    }
+                )
+            except Exception as e:
+                print(f"⚠️ 답변 생성 실패 (question_id={a.question_id}): {e}")
+
+    # 4. 미디어 수정 (기존 삭제 후 새로 생성)
+    if payload.medias is not None:
+        # 질문 ID 유효성 검증
+        media_qids = [m.question_id for m in payload.medias if m.question_id is not None]
+        await _ensure_valid_question_ids(media_qids)
+        
+        # 기존 미디어 모두 삭제
+        if post.questionMedias:
+            for media in post.questionMedias:
+                try:
+                    await db.medias.delete(where={"id": int(media.id)})
+                except Exception as e:
+                    print(f"⚠️ 기존 미디어 삭제 실패 (id={media.id}): {e}")
+        
+        # 새 미디어 생성
+        for m in payload.medias:
+            if m.question_id is None:
+                continue
+            try:
+                await db.medias.create(
+                    data={
+                        "post_id": post_id,
+                        "question_id": m.question_id,
+                        "media_type": m.media_type,
+                        "file_path": m.file_path,
+                    }
+                )
+            except Exception as e:
+                print(f"⚠️ 미디어 생성 실패: {e}")
+
+    # 수정된 포스트 반환
+    updated = await db.posts.find_unique(
+        where={"post_id": post_id},
+        include={
+            "user": True,
+            "answers": {"include": {"question": True}},
+            "questionMedias": True,
+            "emoji": True,
+            "movie": True,
+        }
+    )
+    
     return {"message": "수정 완료", "post": updated}
 
 

@@ -33,3 +33,6 @@ class PostUpdate(BaseModel):
     emojis_id: Optional[int] = None
     visibility: Optional[str] = None
     spoiler: Optional[bool] = None
+    rating: Optional[float] = None  # 평점 수정
+    answers: Optional[List[AnswerIn]] = None  # 답변 추가/수정/삭제
+    medias: Optional[List[MediaIn]] = None  # 미디어 추가/수정/삭제
