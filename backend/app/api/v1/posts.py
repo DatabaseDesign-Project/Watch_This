@@ -332,14 +332,19 @@ async def feed(
     # 1. 친구 목록 조회
     friend_ids = await get_friend_ids(current_user_id)
     
-    # 친구가 없으면 빈 결과 반환
-    if not friend_ids:
-        return []
+    # 2. 내 게시물 + 친구의 게시물 조회 (private는 내 것만 포함)
+    # 내 게시물: 모든 visibility 포함
+    # 친구 게시물: private 제외
+    user_ids_to_show = list(friend_ids) + [current_user_id]
     
-    # 2. 친구의 게시물만 조회, private visibility 제외
     base_conditions = [
-        {"user_id": {"in": list(friend_ids)}},  # 친구의 게시물만
-        {"visibility": {"not": "private"}}  # private 제외
+        {"user_id": {"in": user_ids_to_show}},
+        {
+            "OR": [
+                {"user_id": current_user_id},  # 내 게시물은 모두 표시
+                {"visibility": {"not": "private"}}  # 친구 게시물은 private 제외
+            ]
+        }
     ]
     
     if cursor_created_at:
