@@ -94,7 +94,7 @@ async def movie_search(
     page: int = Query(1, ge=1, le=50),
     rds: Optional[aioredis.Redis] = Depends(get_redis),
 ):
-    cache_key = f"tmdb:search:{q}:{page}"
+    cache_key = f"tmdb:search:{q}:{page}:v2"
     if rds:
         try:
             cached = await rds.get(cache_key)
@@ -105,6 +105,7 @@ async def movie_search(
 
     genre_map = await get_genre_map(rds, lang="ko-KR")
 
+    # 1. 영화 제목으로 검색
     search_url = f"{TMDB}/search/movie"
     kwargs = auth_kwargs()
     params = kwargs.pop("params", {})
@@ -117,17 +118,84 @@ async def movie_search(
         "page": str(page),
     }
 
+    movie_results = []
+    total_results = 0
+    
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             resp = await c.get(search_url, params=merged_params, headers=headers, **kwargs)
             resp.raise_for_status()
             data = resp.json()
+            movie_results = data.get("results") or []
+            total_results = data.get("total_results", 0)
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
     except httpx.RequestError as e:
         raise HTTPException(status_code=504, detail=f"TMDB 검색 실패: {str(e)}")
 
-    results = (data.get("results") or [])[:5]
+    # 2. 인물(감독, 배우)로 검색
+    person_url = f"{TMDB}/search/person"
+    kwargs2 = auth_kwargs()
+    params2 = kwargs2.pop("params", {})
+    headers2 = kwargs2.pop("headers", {})
+    merged_params2 = {
+        **params2,
+        "query": q,
+        "language": "ko-KR",
+        "include_adult": "false",
+        "page": "1",
+    }
+
+    person_movie_ids: Set[int] = set()
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            resp = await c.get(person_url, params=merged_params2, headers=headers2, **kwargs2)
+            resp.raise_for_status()
+            person_data = resp.json()
+            
+            # 인물이 참여한 영화 ID 수집
+            for person in (person_data.get("results") or [])[:3]:  # 상위 3명만
+                for movie in (person.get("known_for") or []):
+                    if movie.get("media_type") == "movie":
+                        person_movie_ids.add(movie.get("id"))
+    except Exception:
+        pass  # 인물 검색 실패는 무시
+
+    # 3. 인물 검색으로 찾은 영화 상세 정보 가져오기
+    person_movies = []
+    if person_movie_ids:
+        async def fetch_movie_detail(movie_id: int):
+            url = f"{TMDB}/movie/{movie_id}"
+            k = auth_kwargs()
+            p = k.pop("params", {})
+            h = k.pop("headers", {})
+            merged = {**p, "language": "ko-KR"}
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r = await c.get(url, params=merged, headers=h, **k)
+                    r.raise_for_status()
+                    return r.json()
+            except Exception:
+                return None
+        
+        person_movie_details = await asyncio.gather(*[fetch_movie_detail(mid) for mid in list(person_movie_ids)[:5]])
+        person_movies = [m for m in person_movie_details if m is not None]
+
+    # 4. 영화 제목 검색 결과와 인물 검색 결과 병합 (중복 제거)
+    seen_ids: Set[int] = set()
+    combined_results = []
+    
+    for movie in movie_results:
+        if movie.get("id") not in seen_ids:
+            seen_ids.add(movie.get("id"))
+            combined_results.append(movie)
+    
+    for movie in person_movies:
+        if movie.get("id") not in seen_ids:
+            seen_ids.add(movie.get("id"))
+            combined_results.append(movie)
+    
+    results = combined_results[:5]
 
     async def fetch_director(mid: int) -> Optional[str]:
         url = f"{TMDB}/movie/{mid}/credits"
@@ -150,7 +218,7 @@ async def movie_search(
     directors: List[Optional[str]] = await asyncio.gather(*[fetch_director(m["id"]) for m in results])
     mapped = [map_movie_brief(m, genre_map, directors[idx]) for idx, m in enumerate(results)]
 
-    response = {"query": q, "page": page, "total_results": data.get("total_results", 0), "results": mapped}
+    response = {"query": q, "page": page, "total_results": total_results + len(person_movies), "results": mapped}
 
     if rds:
         try:
