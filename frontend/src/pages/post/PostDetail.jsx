@@ -353,8 +353,8 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
                 {/* 시청 날짜 및 평점 */}
                 <div style={{ padding: '0 20px 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', fontSize: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#666' }}>작성일</span>
-                        <span style={{ color: '#333', fontWeight: '500' }}>{formatDate(post.created_at)}</span>
+                        <span style={{ color: '#666' }}>시청날짜</span>
+                        <span style={{ color: '#333', fontWeight: '500' }}>{formatDate(post.watch_date)}</span>
                     </div>
 
                     {(post.rating !== undefined && post.rating !== null && post.rating > 0) && (

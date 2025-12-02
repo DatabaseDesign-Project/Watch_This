@@ -41,7 +41,10 @@ async function uploadMediaForPost(postId, questionId, file) {
 
 export default function PostWriting({ movie, onBack, onSubmit }) {
     const [postTitle, setPostTitle] = useState('');
-    const [watchDate, setWatchDate] = useState('2025-09-01');
+    const [watchDate, setWatchDate] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    });
     const [rating, setRating] = useState(0);
     const [privacy, setPrivacy] = useState('전체공개');
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -200,6 +203,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
             const payload = {
                 tmdb_id: movie.id,
                 title: postTitle || `${movie.title} 감상`,
+                watch_date: watchDate || undefined,
                 rating: rating || undefined,
                 emojis_id: selectedEmojiId || undefined,
                 visibility: mapPrivacy(privacy),
