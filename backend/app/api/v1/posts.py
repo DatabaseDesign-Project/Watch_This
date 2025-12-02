@@ -82,6 +82,12 @@ async def _ensure_valid_question_ids(qids: List[int]) -> None:
 # TMDB → DB 저장 보조
 # =========================
 async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
+    # 1. tmdb_id로 먼저 조회 (가장 정확한 방법)
+    existing = await db.movies.find_first(where={"tmdb_id": payload_tmdb_id})
+    if existing:
+        return int(existing.id)
+    
+    # 2. TMDB API에서 영화 정보 가져오기
     try:
         url = f"{tmdb_mod.TMDB}/movie/{payload_tmdb_id}"
         kwargs = tmdb_mod.auth_kwargs()
@@ -89,7 +95,6 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
         headers = kwargs.pop("headers", {})
         merged_params = {**params, "append_to_response": "credits,release_dates", "language": "ko-KR"}
         
-        # httpx 클라이언트 생성
         async with httpx.AsyncClient(timeout=10) as c:
             resp = await c.get(url, params=merged_params, headers=headers, **kwargs)
             resp.raise_for_status()
@@ -123,11 +128,7 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
     poster_path = tmdb.get("poster_path")
     poster = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
 
-    # [수정] 장르 추출은 하되, DB 저장은 하지 않음 (에러 방지)
-    # genres_list = tmdb.get("genres", [])
-    # genre_str = ", ".join([g["name"] for g in genres_list]) if genres_list else ""
-
-    # 제목과 개봉일로 검색 (더 정확한 매칭)
+    # 3. 제목과 개봉일로 기존 영화 재확인 (tmdb_id가 없는 기존 데이터 대응)
     existing = await db.movies.find_first(
         where={
             "AND": [
@@ -142,21 +143,54 @@ async def _resolve_or_import_movie(payload_tmdb_id: int) -> int:
             ]
         }
     )
+    
+    # 4. 기존 영화가 있으면 tmdb_id 업데이트 후 반환
     if existing:
+        if existing.tmdb_id is None:
+            await db.movies.update(
+                where={"id": int(existing.id)},
+                data={"tmdb_id": payload_tmdb_id}
+            )
         return int(existing.id)
 
-    # [수정] genre 필드 제거함 (DB 스키마 불일치로 인한 500 에러 방지)
-    mv = await db.movies.create(
-        data={
-            "title": title,
-            "original_title": original_title,
-            "release_date": release_dt,
-            "director": director or "",
-            "runtime_minutes": int(runtime or 0),
-            "poster_image": poster,
-            # "genre": genre_str  <-- 이 줄을 삭제했습니다.
-        }
-    )
+    # 5. 새 영화 생성 (tmdb_id 포함, 장르 포함)
+    # 장르 처리 (최대 5개)
+    genre_ids = tmdb.get("genres") or []
+    # genre_map 가져오기 (redis 없이)
+    try:
+        genre_map = await tmdb_mod.get_genre_map(None, lang="ko-KR")
+    except Exception:
+        genre_map = {}
+    
+    genre_names = []
+    for g in genre_ids:
+        gid = g.get("id")
+        if gid and gid in genre_map:
+            genre_names.append(genre_map[gid])
+        if len(genre_names) >= 5:
+            break
+    
+    # genre1은 필수, 없으면 "미분류"
+    create_data = {
+        "tmdb_id": payload_tmdb_id,
+        "title": title,
+        "original_title": original_title,
+        "release_date": release_dt,
+        "director": director or "",
+        "runtime_minutes": int(runtime or 0),
+        "poster_image": poster,
+        "genre1": genre_names[0] if len(genre_names) > 0 else "미분류",
+    }
+    if len(genre_names) > 1:
+        create_data["genre2"] = genre_names[1]
+    if len(genre_names) > 2:
+        create_data["genre3"] = genre_names[2]
+    if len(genre_names) > 3:
+        create_data["genre4"] = genre_names[3]
+    if len(genre_names) > 4:
+        create_data["genre5"] = genre_names[4]
+
+    mv = await db.movies.create(data=create_data)
     return int(mv.id)
 
 
@@ -210,6 +244,9 @@ async def create_post(payload: PostCreate, current_user_id: int = Depends(get_cu
             "user": {"connect": {"id": user_id_to_use}},
             "movie": {"connect": {"id": resolved_movie_id}},
         }
+        
+        if payload.watch_date:
+            create_data["watch_date"] = payload.watch_date
         
         if payload.emojis_id:
             create_data["emoji"] = {"connect": {"id": payload.emojis_id}}
@@ -327,7 +364,7 @@ async def feed(
             "answers": {"include": {"question": True}},
             "questionMedias": True,
             "emoji": True,
-            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}},
+            "movie": True,
             "comments": True,
         },
     )
@@ -367,9 +404,14 @@ async def feed(
             if movie_id and (user_id, movie_id) in rating_map:
                 encoded[idx]["rating"] = rating_map[(user_id, movie_id)]
 
-            # 장르 정보를 movie 객체에 추가
-            if encoded[idx].get("movie") and encoded[idx]["movie"].get("movie_genres"):
-                genres = [mg["genre"]["name"] for mg in encoded[idx]["movie"]["movie_genres"] if mg.get("genre")]
+            # 장르 정보를 movie 객체에 추가 (genre1~5 컬럼 사용)
+            if encoded[idx].get("movie"):
+                movie_data = encoded[idx]["movie"]
+                genres = []
+                for i in range(1, 6):
+                    g = movie_data.get(f"genre{i}")
+                    if g:
+                        genres.append(g)
                 encoded[idx]["movie"]["genres"] = [{"name": g} for g in genres]
                 encoded[idx]["movie"]["genre"] = ", ".join(genres) if genres else None
 
@@ -394,7 +436,7 @@ async def get_post(
             "answers": {"include": {"question": True}},
             "questionMedias": True,
             "emoji": True,
-            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}},
+            "movie": True,
             "comments": True,
         },
     )
@@ -423,9 +465,14 @@ async def get_post(
         if rating_record:
             encoded["rating"] = float(rating_record.rating)
 
-        # 장르 정보를 movie 객체에 추가
-        if encoded.get("movie") and encoded["movie"].get("movie_genres"):
-            genres = [mg["genre"]["name"] for mg in encoded["movie"]["movie_genres"] if mg.get("genre")]
+        # 장르 정보를 movie 객체에 추가 (genre1~5 컬럼 사용)
+        if encoded.get("movie"):
+            movie_data = encoded["movie"]
+            genres = []
+            for i in range(1, 6):
+                g = movie_data.get(f"genre{i}")
+                if g:
+                    genres.append(g)
             encoded["movie"]["genres"] = [{"name": g} for g in genres]
             encoded["movie"]["genre"] = ", ".join(genres) if genres else None
 
@@ -463,6 +510,8 @@ async def update_post(post_id: int = Path(..., ge=1), payload: PostUpdate = Body
     post_data: Dict[str, Any] = {}
     if payload.title is not None:
         post_data["title"] = payload.title
+    if payload.watch_date is not None:
+        post_data["watch_date"] = payload.watch_date
     if payload.visibility is not None:
         post_data["visibility"] = payload.visibility
     if payload.spoiler is not None:
@@ -633,7 +682,7 @@ async def list_user_posts(
             "answers": {"include": {"question": True}},
             "questionMedias": True,
             "emoji": True,
-            "movie": {"include": {"movie_genres": {"include": {"genre": True}}}},
+            "movie": True,
             "comments": True,
         },
     )
@@ -672,9 +721,14 @@ async def list_user_posts(
             if mid and (uid, mid) in rating_map:
                 encoded[idx]["rating"] = rating_map[(uid, mid)]
 
-            # 장르 정보를 movie 객체에 추가
-            if encoded[idx].get("movie") and encoded[idx]["movie"].get("movie_genres"):
-                genres = [mg["genre"]["name"] for mg in encoded[idx]["movie"]["movie_genres"] if mg.get("genre")]
+            # 장르 정보를 movie 객체에 추가 (genre1~5 컬럼 사용)
+            if encoded[idx].get("movie"):
+                movie_data = encoded[idx]["movie"]
+                genres = []
+                for i in range(1, 6):
+                    g = movie_data.get(f"genre{i}")
+                    if g:
+                        genres.append(g)
                 encoded[idx]["movie"]["genres"] = [{"name": g} for g in genres]
                 encoded[idx]["movie"]["genre"] = ", ".join(genres) if genres else None
 

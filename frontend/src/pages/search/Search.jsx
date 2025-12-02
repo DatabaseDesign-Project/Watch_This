@@ -77,10 +77,10 @@ const Search = () => {
 
   // (검색 기록 UI는 현재 렌더링되지 않음)
 
-  const handleMovieSelect = (movie, fromDb = false) => {
+  const handleMovieSelect = (movie) => {
     // 영화 상세 페이지로 이동 (영화 정보를 state로 전달)
-    // fromDb 플래그: 후기 많은 작품(DB movie ID)인지 구분
-    navigate(`/movie/${movie.id}`, { state: { movie, fromDb } });
+    // 모든 영화 ID는 이제 TMDB ID 기준
+    navigate(`/movie/${movie.id}`, { state: { movie } });
   };
 
   // debounced live search as user types (300ms)
@@ -185,7 +185,7 @@ const Search = () => {
                     <h2 className="search-section-title text-md font-bold font-inter text-primary">후기 많은 작품</h2>
                     <div className="search-movie-list">
                       {highlights.mostReviewed.map((movie) => (
-                        <MovieCard key={movie.id} movie={movie} onSelect={(m) => handleMovieSelect(m, true)} />
+                        <MovieCard key={movie.id} movie={movie} onSelect={handleMovieSelect} />
                       ))}
                     </div>
                   </section>

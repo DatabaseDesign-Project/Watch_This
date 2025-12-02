@@ -33,6 +33,7 @@ model users {
 
 model movies {
     id              BigInt   @id @default(autoincrement())
+    tmdb_id         Int?     @unique
     title           String   @db.VarChar(255)
     original_title  String   @db.VarChar(255)
     release_date    DateTime
@@ -40,21 +41,21 @@ model movies {
     runtime_minutes Int
     poster_image    String?  @db.VarChar(2048)
     is_series       Boolean  @default(false)
+    genre1          String   @db.VarChar(50)
+    genre2          String?  @db.VarChar(50)
+    genre3          String?  @db.VarChar(50)
+    genre4          String?  @db.VarChar(50)
+    genre5          String?  @db.VarChar(50)
 
     posts        posts[]
     ratings      ratings[]
-    movie_genres movie_genres[]
 
     @@index([title])
     @@index([release_date])
+    @@index([tmdb_id])
 }
 
-model genres {
-    id   BigInt @id @default(autoincrement())
-    name String @unique @db.VarChar(50)
 
-    movie_genres movie_genres[]
-}
 
 model emojis {
     id          BigInt @id @default(autoincrement())
@@ -69,6 +70,7 @@ model posts {
     user_id      BigInt
     movie_id     BigInt
     title        String?  @db.VarChar(150)
+    watch_date   DateTime?
     created_at   DateTime @default(now())
     updated_at   DateTime?
     emojis_id    BigInt?
@@ -176,15 +178,7 @@ model friends {
     @@index([status])
 }
 
-model movie_genres {
-    movie_id BigInt
-    genre_id BigInt
 
-    movie movies @relation(fields: [movie_id], references: [id], onDelete: Cascade)
-    genre genres @relation(fields: [genre_id], references: [id], onDelete: Cascade)
-
-    @@id([movie_id, genre_id])
-}
 
 model answers {
     post_id     BigInt

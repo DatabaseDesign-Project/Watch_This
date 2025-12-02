@@ -272,6 +272,12 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
     """
     TMDB id를 기반으로 movies row 존재를 보장하고, 없으면 생성하여 DB movie id 반환.
     """
+    # 1. tmdb_id로 먼저 조회 (가장 정확한 방법)
+    existing = await db.movies.find_first(where={"tmdb_id": tmdb_id})
+    if existing:
+        return int(existing.id)
+    
+    # 2. TMDB API에서 영화 정보 가져오기
     try:
         url = f"{TMDB}/movie/{tmdb_id}"
         kwargs = auth_kwargs()
@@ -296,7 +302,7 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
     except Exception:
         release_dt = _dt.utcnow()
 
-    # 제목과 개봉일로 검색 (더 정확한 매칭)
+    # 3. 제목과 개봉일로 기존 영화 재확인 (tmdb_id가 없는 기존 데이터 대응)
     existing = await db.movies.find_first(
         where={
             "AND": [
@@ -311,9 +317,17 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
             ]
         }
     )
+    
+    # 4. 기존 영화가 있으면 tmdb_id 업데이트 후 반환
     if existing:
+        if existing.tmdb_id is None:
+            await db.movies.update(
+                where={"id": int(existing.id)},
+                data={"tmdb_id": tmdb_id}
+            )
         return int(existing.id)
 
+    # 5. 새 영화 생성 (tmdb_id 포함, 장르 포함)
     poster_path = tmdb.get("poster_path")
     poster = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
     director = None
@@ -321,17 +335,39 @@ async def _resolve_or_import_movie_to_db(tmdb_id: int, rds: Optional[aioredis.Re
         if cobj.get("job") == "Director":
             director = cobj.get("name")
             break
+    
+    # 장르 처리 (최대 5개)
+    genre_ids = tmdb.get("genres") or []
+    genre_map = await get_genre_map(rds, lang="ko-KR")
+    genre_names = []
+    for g in genre_ids:
+        gid = g.get("id")
+        if gid and gid in genre_map:
+            genre_names.append(genre_map[gid])
+        if len(genre_names) >= 5:
+            break
+    
+    # genre1은 필수, 없으면 "미분류"
+    create_data = {
+        "tmdb_id": tmdb_id,
+        "title": title,
+        "original_title": original_title,
+        "release_date": release_dt,
+        "director": director or "",
+        "runtime_minutes": int(tmdb.get("runtime") or 0),
+        "poster_image": poster,
+        "genre1": genre_names[0] if len(genre_names) > 0 else "미분류",
+    }
+    if len(genre_names) > 1:
+        create_data["genre2"] = genre_names[1]
+    if len(genre_names) > 2:
+        create_data["genre3"] = genre_names[2]
+    if len(genre_names) > 3:
+        create_data["genre4"] = genre_names[3]
+    if len(genre_names) > 4:
+        create_data["genre5"] = genre_names[4]
 
-    mv = await db.movies.create(
-        data={
-            "title": title,
-            "original_title": tmdb.get("original_title") or title,
-            "release_date": release_dt,
-            "director": director or "",
-            "runtime_minutes": int(tmdb.get("runtime") or 0),
-            "poster_image": poster,
-        }
-    )
+    mv = await db.movies.create(data=create_data)
     return int(mv.id)
 
 @router.get("/{movie_id}/posts")
@@ -450,22 +486,32 @@ _HIGHLIGHTS_CACHE_KEY = "movies:highlights:v3"  # 통합 캐시
 _HIGHLIGHTS_TTL_SEC = 1800  # 30분
 
 async def _genres_for_movies(movie_ids: List[int]) -> Dict[int, List[str]]:
+    """movies 테이블의 genre1~5 컬럼에서 장르 정보를 가져옴 (TMDB ID 기준)"""
     if not movie_ids:
         return {}
-    rows = await db.query_raw(
-        """
-        SELECT mg.movie_id AS movie_id, g.name AS name
-        FROM movie_genres mg
-        JOIN genres g ON g.id = mg.genre_id
-        WHERE mg.movie_id = ANY($1)
-        """,
-        movie_ids,
+    
+    # movie_ids는 tmdb_id 리스트
+    movies = await db.movies.find_many(
+        where={"tmdb_id": {"in": movie_ids}}
     )
+    
     out: Dict[int, List[str]] = {}
-    for r in rows:
-        mid = int(r["movie_id"])
-        out.setdefault(mid, []).append(r["name"])
+    for m in movies:
+        genres = []
+        if m.genre1:
+            genres.append(m.genre1)
+        if m.genre2:
+            genres.append(m.genre2)
+        if m.genre3:
+            genres.append(m.genre3)
+        if m.genre4:
+            genres.append(m.genre4)
+        if m.genre5:
+            genres.append(m.genre5)
+        out[m.tmdb_id] = genres
+    
     return out
+
 
 def _fmt_release_date(rel) -> str:
     if hasattr(rel, "strftime"):
@@ -483,17 +529,19 @@ async def _backfill_with_likes(exclude_ids: Set[int], need: int) -> List[Dict[st
         return []
     like_rows = await db.query_raw(
         """
-        SELECT p.movie_id AS movie_id, COUNT(l.user_id)::int AS like_cnt
+        SELECT m.tmdb_id AS tmdb_id, COUNT(l.user_id)::int AS like_cnt
         FROM posts p
+        JOIN movies m ON m.id = p.movie_id
         LEFT JOIN likes l ON l.post_id = p.post_id
-        GROUP BY p.movie_id
-        ORDER BY like_cnt DESC, p.movie_id DESC
+        WHERE m.tmdb_id IS NOT NULL
+        GROUP BY m.tmdb_id
+        ORDER BY like_cnt DESC, m.tmdb_id DESC
         LIMIT 10
         """
     )
     picked: List[int] = []
     for r in like_rows:
-        mid = int(r["movie_id"])
+        mid = int(r["tmdb_id"])
         if mid in exclude_ids:
             continue
         picked.append(mid)
@@ -501,8 +549,8 @@ async def _backfill_with_likes(exclude_ids: Set[int], need: int) -> List[Dict[st
             break
     if not picked:
         return []
-    movies_rows = await db.movies.find_many(where={"id": {"in": picked}})
-    id_map = {int(m.id): m for m in movies_rows}
+    movies_rows = await db.movies.find_many(where={"tmdb_id": {"in": picked}})
+    id_map = {int(m.tmdb_id): m for m in movies_rows if m.tmdb_id}
     gen_map = await _genres_for_movies(picked)
     out = []
     for mid in picked:
@@ -528,16 +576,18 @@ async def _backfill_with_recent_posts(exclude_ids: Set[int], need: int) -> List[
         return []
     recent_rows = await db.query_raw(
         """
-        SELECT p.movie_id AS movie_id, MAX(p.created_at) AS last_ts
+        SELECT m.tmdb_id AS tmdb_id, MAX(p.created_at) AS last_ts
         FROM posts p
-        GROUP BY p.movie_id
-        ORDER BY last_ts DESC, movie_id DESC
+        JOIN movies m ON m.id = p.movie_id
+        WHERE m.tmdb_id IS NOT NULL
+        GROUP BY m.tmdb_id
+        ORDER BY last_ts DESC, tmdb_id DESC
         LIMIT 10
         """
     )
     picked: List[int] = []
     for r in recent_rows:
-        mid = int(r["movie_id"])
+        mid = int(r["tmdb_id"])
         if mid in exclude_ids:
             continue
         picked.append(mid)
@@ -545,8 +595,8 @@ async def _backfill_with_recent_posts(exclude_ids: Set[int], need: int) -> List[
             break
     if not picked:
         return []
-    movies_rows = await db.movies.find_many(where={"id": {"in": picked}})
-    id_map = {int(m.id): m for m in movies_rows}
+    movies_rows = await db.movies.find_many(where={"tmdb_id": {"in": picked}})
+    id_map = {int(m.tmdb_id): m for m in movies_rows if m.tmdb_id}
     gen_map = await _genres_for_movies(picked)
     out = []
     for mid in picked:
@@ -637,11 +687,11 @@ async def movies_highlights(
         popular = []
 
     # ---------- mostReviewed (DB, 장르/평점 포함 + 3개 보장) ----------
-    # 1) posts 기준 Top 3 + AVG(ratings)
+    # 1) posts 기준 Top 3 + AVG(ratings), tmdb_id 반환
     agg_rows = await db.query_raw(
         """
         SELECT
-            m.id AS id,
+            m.tmdb_id AS tmdb_id,
             m.title AS title,
             m.original_title AS original_title,
             m.release_date AS release_date,
@@ -652,17 +702,18 @@ async def movies_highlights(
         FROM movies m
         JOIN posts p ON p.movie_id = m.id
         LEFT JOIN ratings r ON r.movie_id = m.id
-        GROUP BY m.id
-        ORDER BY post_count DESC, m.id DESC
+        WHERE m.tmdb_id IS NOT NULL
+        GROUP BY m.tmdb_id, m.title, m.original_title, m.release_date, m.director, m.poster_image
+        ORDER BY post_count DESC, m.tmdb_id DESC
         LIMIT 3
         """
     )
-    picked_ids: List[int] = [int(r["id"]) for r in agg_rows]
+    picked_ids: List[int] = [int(r["tmdb_id"]) for r in agg_rows]
     gen_map = await _genres_for_movies(picked_ids)
 
     most: List[Dict[str, Any]] = []
     for r in agg_rows:
-        mid = int(r["id"])
+        mid = int(r["tmdb_id"])
         avg_val = r["avg_rating"]
         rating_avg = float(avg_val) if avg_val is not None else None
         most.append({

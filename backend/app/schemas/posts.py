@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from datetime import datetime
 
 
 class AnswerIn(BaseModel):
@@ -18,6 +19,7 @@ class PostCreate(BaseModel):
     movie_id: Optional[int] = None
     tmdb_id: Optional[int] = None
     title: str = Field(..., max_length=150)
+    watch_date: Optional[datetime] = None  # 시청 날짜
     # optional rating the author gives to the movie; stored in ratings table
     rating: Optional[float] = None
     emojis_id: Optional[int] = None
@@ -30,6 +32,7 @@ class PostCreate(BaseModel):
 class PostUpdate(BaseModel):
     user_id: int
     title: Optional[str] = None
+    watch_date: Optional[datetime] = None  # 시청 날짜 수정
     emojis_id: Optional[int] = None
     visibility: Optional[str] = None
     spoiler: Optional[bool] = None
