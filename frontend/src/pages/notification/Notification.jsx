@@ -147,7 +147,15 @@ const Notification = () => {
                         </>
                       ) : notification.type === 'friend_request' ? (
                         <p className="notification-text">
-                          {senderName}님이 친구 요청을 보냈어요.
+                          {/* Show sender + server message (if any) so user sees who accepted/sent */}
+                          {notification.message ? (
+                            // If the server message indicates an acceptance, normalize phrasing to active past tense
+                            /수락/.test(notification.message) ?
+                              `${senderName}님이 친구 요청을 수락했습니다.` :
+                              `${senderName}님이 ${notification.message}`
+                          ) : (
+                            `${senderName}님이 친구 요청을 보냈어요.`
+                          )}
                         </p>
                       ) : notification.type === 'like' ? (
                         <p className="notification-text">
