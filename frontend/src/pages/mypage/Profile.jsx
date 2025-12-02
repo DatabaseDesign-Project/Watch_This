@@ -22,53 +22,58 @@ function Profile() {
       try {
         setLoading(true);
         
-        // 현재 로그인한 유저 프로필 가져오기
+        // 병렬로 프로필 가져오기
         const currentUser = await getProfile();
         setUser(currentUser);
+        setLoading(false); // 프로필은 바로 표시
         
-        const userPosts = await getUserPosts(currentUser.id);
-        const mapped = Array.isArray(userPosts)
-          ? userPosts.map(p => {
-              const posterImage = p.movie?.poster_image || p.movie?.poster || null;
-              const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
-              const image = posterImage || questionMedia || null;
-              const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
+        // 포스트와 친구 정보는 병렬로 가져오기 (프로필 표시를 막지 않음)
+        Promise.all([
+          getUserPosts(currentUser.id).catch(err => {
+            console.error('포스트 로드 실패:', err);
+            return [];
+          }),
+          getFriends().catch(err => {
+            console.error('친구 로드 실패:', err);
+            return [];
+          })
+        ]).then(([userPosts, friends]) => {
+          // 포스트 매핑
+          const mapped = Array.isArray(userPosts)
+            ? userPosts.map(p => {
+                const posterImage = p.movie?.poster_image || p.movie?.poster || null;
+                const questionMedia = Array.isArray(p.questionMedias) && p.questionMedias[0]?.file_path;
+                const image = posterImage || questionMedia || null;
+                const description = Array.isArray(p.answers) ? p.answers.map((a) => a.answer).join('\n') : '';
 
-              return {
-                id: p.post_id || p.id,
-                category: p.user?.nickname || p.nickname || user?.name || '익명',
-                movieTitle: p.movie?.title || p.movie?.korean_title || p.movie_title || '',
-                title: p.title || '',
-                description,
-                image,
-                likes: p.like_cnt || 0,
-                comments: (p.comments || []).length || 0,
-                createdAt: p.created_at || p.createdAt,
-                liked: p.liked || p.is_liked || false,
-                emoji: p.emoji?.emoji_image || p.emoji_image || null,
-                isSpoiler: Boolean(p.is_spoiler),
-                showPlaceholderImage: !image,
-              };
-            })
-          : [];
-        setPosts(mapped);
-        
-        // 친구 수를 실제 친구 목록 길이로 설정
-        try {
-          const friends = await getFriends();
+                return {
+                  id: p.post_id || p.id,
+                  category: p.user?.nickname || p.nickname || currentUser?.name || '익명',
+                  movieTitle: p.movie?.title || p.movie?.korean_title || p.movie_title || '',
+                  title: p.title || '',
+                  description,
+                  image,
+                  likes: p.like_cnt || 0,
+                  comments: (p.comments || []).length || 0,
+                  createdAt: p.created_at || p.createdAt,
+                  liked: p.liked || p.is_liked || false,
+                  emoji: p.emoji?.emoji_image || p.emoji_image || null,
+                  isSpoiler: Boolean(p.is_spoiler),
+                  showPlaceholderImage: !image,
+                };
+              })
+            : [];
+          setPosts(mapped);
+          
+          // 친구 수 설정
           setFriendCount(Array.isArray(friends) ? friends.length : (currentUser.friendCount || 0));
-        } catch (e) {
-          setFriendCount(currentUser.friendCount || 0);
-        }
+        });
         
       } catch (error) {
         console.error('프로필 로딩 실패:', error);
-        
-        // 에러 발생 시 기본값으로 대체
         setUser(null);
         setPosts([]);
         setFriendCount(0);
-      } finally {
         setLoading(false);
       }
     };

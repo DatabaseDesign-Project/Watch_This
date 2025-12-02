@@ -21,14 +21,29 @@ export default function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const minimal = urlParams.get('minimal') === '1';
 
-  const fetchFeed = async () => {
+  const fetchFeed = async (retryCount = 0) => {
     try {
       const uid = localStorage.getItem('user_id') || '1';
+      
+      // 타임아웃 설정 (10초)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const res = await fetch('/api/v1/posts/feed', {
         headers: { 'X-User-Id': uid },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
       if (!res.ok) {
         console.error('feed fetch failed', res.status);
+        // 500 에러시 한 번 재시도
+        if (res.status >= 500 && retryCount < 1) {
+          console.log('재시도 중...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchFeed(retryCount + 1);
+        }
         return;
       }
       const data = await res.json();
@@ -61,12 +76,19 @@ export default function App() {
 
       setPosts(mapped);
     } catch (err) {
-      console.error('feed fetch failed', err);
+      if (err.name === 'AbortError') {
+        console.error('피드 로딩 타임아웃');
+      } else {
+        console.error('feed fetch failed', err);
+      }
+      // 에러 발생시 빈 배열로 설정 (페이지는 정상 표시)
+      setPosts([]);
     }
   };
 
   useEffect(() => {
     if (currentView === 'feed') fetchFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
 
   const handleFabClick = () => setCurrentView('movieSearch');

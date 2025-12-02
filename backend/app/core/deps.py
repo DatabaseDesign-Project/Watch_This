@@ -57,7 +57,13 @@ engine_kwargs: dict = {
     "connect_args": connect_args,
 }
 if not is_sqlite:
-    engine_kwargs.update({"pool_size": 5, "max_overflow": 10})
+    # Connection pool 설정 (min=max로 고정 크기 풀)
+    engine_kwargs.update({
+        "pool_size": 10,  # 최소 및 기본 커넥션 수
+        "max_overflow": 0,  # overflow 없음 (고정 크기)
+        "pool_pre_ping": True,  # 연결 재사용 전 health check
+        "pool_recycle": 3600,  # 1시간마다 커넥션 재생성
+    })
 
 engine: AsyncEngine = create_async_engine(DB_URL, **engine_kwargs)
 

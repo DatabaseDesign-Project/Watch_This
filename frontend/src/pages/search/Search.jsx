@@ -20,16 +20,47 @@ const Search = () => {
   const [highlightsLoading, setHighlightsLoading] = useState(true);
   const debounceRef = useRef(null);
 
-  // Load highlights on component mount
+  // Load highlights on component mount (백그라운드)
   useEffect(() => {
     const loadHighlights = async () => {
       setHighlightsLoading(true);
       try {
+        // 캐시된 데이터가 있으면 바로 표시
+        const cached = sessionStorage.getItem('movie_highlights');
+        if (cached) {
+          try {
+            const parsedCache = JSON.parse(cached);
+            const cacheTime = parsedCache.timestamp || 0;
+            // 5분 이내 캐시는 유효
+            if (Date.now() - cacheTime < 5 * 60 * 1000) {
+              setHighlights({
+                popular: parsedCache.popular || [],
+                mostReviewed: parsedCache.mostReviewed || []
+              });
+              setHighlightsLoading(false);
+            }
+          } catch (e) {
+            console.warn('캐시 파싱 실패:', e);
+          }
+        }
+        
+        // 백그라운드에서 최신 데이터 가져오기
         const data = await getMovieHighlights();
-        setHighlights({
+        const highlights = {
           popular: data?.popular || [],
           mostReviewed: data?.mostReviewed || []
-        });
+        };
+        setHighlights(highlights);
+        
+        // 캐시 저장
+        try {
+          sessionStorage.setItem('movie_highlights', JSON.stringify({
+            ...highlights,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('캐시 저장 실패:', e);
+        }
       } catch (e) {
         console.error('Failed to load highlights:', e);
         setHighlights({ popular: [], mostReviewed: [] });

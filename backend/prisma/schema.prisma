@@ -28,7 +28,6 @@ model users {
     recv_notis    notifications[] @relation("Receiver")
 
     @@index([nickname])
-    @@index([created_at])
 }
 
 model movies {
@@ -51,7 +50,6 @@ model movies {
     ratings      ratings[]
 
     @@index([title])
-    @@index([release_date])
     @@index([tmdb_id])
 }
 
@@ -91,6 +89,9 @@ model posts {
     @@index([movie_id])
     @@index([created_at])
     @@index([visibility])
+    @@index([user_id, created_at])  // 사용자별 게시물 시간순 조회
+    @@index([user_id, visibility])  // 사용자별 공개범위 필터링
+    @@index([created_at, post_id])  // 피드 페이징 최적화
 }
 
 model comments {
@@ -110,7 +111,6 @@ model comments {
 
     @@index([post_id])
     @@index([user_id])
-    @@index([created_at])
     @@index([parent_comment_id]) 
 }
 
@@ -135,8 +135,7 @@ model notifications {
     receiver users  @relation("Receiver", fields: [reciver_id], references: [id])
 
     @@index([reciver_id])
-    @@index([is_read])
-    @@index([created_at])
+    @@index([reciver_id, is_read, created_at])  // 수신자별 읽지 않은 알림 조회
 }
 
 model ratings {
@@ -161,7 +160,6 @@ model likes {
 
     @@id([user_id, post_id])
     @@index([post_id])
-    @@index([created_at])
 }
 
 model friends {
@@ -176,6 +174,8 @@ model friends {
 
     @@id([requester_id, addressee_id])
     @@index([status])
+    @@index([requester_id, status])  // 요청자별 상태 조회
+    @@index([addressee_id, status])  // 수신자별 상태 조회
 }
 
 

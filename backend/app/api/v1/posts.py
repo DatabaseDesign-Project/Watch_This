@@ -329,14 +329,23 @@ async def feed(
     limit: int = Query(20, ge=1, le=100),
     current_user_id: int = Depends(get_current_user_id),
 ):
-    or_clauses = await build_visibility_or(current_user_id)
-    where_clause: Dict[str, Any] = {"OR": or_clauses}
+    # 1. 친구 목록 조회
+    friend_ids = await get_friend_ids(current_user_id)
+    
+    # 친구가 없으면 빈 결과 반환
+    if not friend_ids:
+        return []
+    
+    # 2. 친구의 게시물만 조회, private visibility 제외
+    base_conditions = [
+        {"user_id": {"in": list(friend_ids)}},  # 친구의 게시물만
+        {"visibility": {"not": "private"}}  # private 제외
+    ]
     
     if cursor_created_at:
         try:
             where_clause = {
-                "AND": [
-                    {"OR": or_clauses},
+                "AND": base_conditions + [
                     {
                         "OR": [
                             {"created_at": {"lt": cursor_created_at}},
@@ -351,9 +360,11 @@ async def feed(
                 ]
             }
         except Exception:
-            pass
+            where_clause = {"AND": base_conditions}
     elif cursor_id:
-        where_clause = {"AND": [{"post_id": {"lt": cursor_id}}, {"OR": or_clauses}]}
+        where_clause = {"AND": base_conditions + [{"post_id": {"lt": cursor_id}}]}
+    else:
+        where_clause = {"AND": base_conditions}
 
     posts = await db.posts.find_many(
         where=where_clause,
