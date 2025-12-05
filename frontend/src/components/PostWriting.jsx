@@ -153,9 +153,32 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     };
 
     const handleQuestionAnswerChange = (localId, answer) => {
-        setQuestions(questions.map(q => 
+        setQuestions(questions.map(q =>
             q.id === localId ? { ...q, answer } : q
         ));
+    };
+
+    // 질문 삭제 핸들러 (기본 질문은 삭제 불가)
+    const handleDeleteQuestion = (localId) => {
+        const questionToDelete = questions.find(q => q.id === localId);
+
+        // 기본 질문은 삭제 불가
+        if (questionToDelete?.question === '자유롭게 이야기를 들려주세요!') {
+            alert('기본 질문은 삭제할 수 없습니다.');
+            return;
+        }
+
+        // 해당 질문에 첨부된 이미지도 삭제
+        if (questionImages[localId]?.previewUrl) {
+            URL.revokeObjectURL(questionImages[localId].previewUrl);
+        }
+
+        setQuestions(questions.filter(q => q.id !== localId));
+        setQuestionImages(prev => {
+            const newState = { ...prev };
+            delete newState[localId];
+            return newState;
+        });
     };
 
     // 이미지 업로드 핸들러 (File 객체 저장)
@@ -188,6 +211,24 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     };
 
     const handleSubmit = async () => {
+        // 제목 확인
+        if (!postTitle || !postTitle.trim()) {
+            alert('게시글 제목을 입력해주세요.');
+            return;
+        }
+
+        // 평점 확인
+        if (!rating || rating === 0) {
+            alert('평점을 선택해주세요.');
+            return;
+        }
+
+        // 이모지 확인
+        if (!selectedEmojiId) {
+            alert('이모지를 선택해주세요.');
+            return;
+        }
+
         // 기본 질문 답변 확인
         const mainQ = questions.find(q => q.question === '자유롭게 이야기를 들려주세요!');
         const mainAnswer = mainQ?.answer?.trim() || '';
@@ -399,6 +440,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                         onImageUpload={(file) => handleImageUpload(question.id, file)}
                         uploadedImageUrl={questionImages[question.id]?.previewUrl}
                         onDeleteImage={() => handleDeleteImage(question.id)}
+                        onDeleteQuestion={question.question !== '자유롭게 이야기를 들려주세요!' ? () => handleDeleteQuestion(question.id) : null}
                         showEmojiPicker={false}
                     />
                 ))}

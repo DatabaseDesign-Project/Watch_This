@@ -18,6 +18,7 @@ import FriendRequest from "./pages/notification/FriendRequest";
 
 // 포스트
 import PostDetail from "./pages/post/PostDetail";
+import PostEdit from "./pages/post/PostEdit";
 
 import "./index.css";
 
@@ -44,6 +45,7 @@ createRoot(document.getElementById("root")).render(
 
         {/* 포스트 */}
         <Route path="/post/:id" element={<PostDetail />} />
+        <Route path="/post/:id/edit" element={<PostEdit />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

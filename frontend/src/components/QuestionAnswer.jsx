@@ -2,14 +2,15 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 const EMOJIS = ['😊', '😢', '😍', '😮', '😱', '😂', '😡', '😴', '🤔', '😎'];
 
-export default function QuestionAnswer({ 
-    question, 
-    placeholder, 
+export default function QuestionAnswer({
+    question,
+    placeholder,
     answerValue = '',       // controlled: 부모가 관리하는 답변 값
     onAnswerChange,
     onImageUpload,          // (file: File) => void - File 객체 전달
     uploadedImageUrl,       // 미리보기용 URL (부모가 관리)
     onDeleteImage,          // 이미지 삭제 핸들러
+    onDeleteQuestion,       // 질문 삭제 핸들러 (null이면 삭제 버튼 표시 안 함)
     showEmojiPicker = false,
     onEmojiSelect
 }) {
@@ -29,29 +30,50 @@ export default function QuestionAnswer({
     };
 
     return (
-        <div className="question-section" style={{ 
-            marginBottom: '24px', 
-            border: '1px solid #f5f5f5', 
-            padding: '16px', 
-            borderRadius: '12px', 
-            backgroundColor: '#fff' 
+        <div className="question-section" style={{
+            marginBottom: '24px',
+            border: '1px solid #f5f5f5',
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: '#fff',
+            position: 'relative'
         }}>
-            <div className="question-header" style={{ 
-                marginBottom: '12px', 
-                display: 'flex', 
-                alignItems: 'flex-start' 
+            <div className="question-header" style={{
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between'
             }}>
-                <span style={{ 
-                    color: '#E35A5A', 
-                    marginRight: '8px', 
-                    fontWeight: 'bold', 
-                    fontSize: '16px' 
-                }}>Q.</span>
-                <span className="question-title" style={{ 
-                    fontWeight: 'bold', 
-                    fontSize: '15px', 
-                    lineHeight: '1.4' 
-                }}>{question}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
+                    <span style={{
+                        color: '#E35A5A',
+                        marginRight: '8px',
+                        fontWeight: 'bold',
+                        fontSize: '16px'
+                    }}>Q.</span>
+                    <span className="question-title" style={{
+                        fontWeight: 'bold',
+                        fontSize: '15px',
+                        lineHeight: '1.4'
+                    }}>{question}</span>
+                </div>
+                {onDeleteQuestion && (
+                    <button
+                        onClick={onDeleteQuestion}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#999',
+                            fontSize: '18px',
+                            cursor: 'pointer',
+                            padding: '0 4px',
+                            lineHeight: 1
+                        }}
+                        title="질문 삭제"
+                    >
+                        ✕
+                    </button>
+                )}
             </div>
             
             <div style={{ position: 'relative' }}>

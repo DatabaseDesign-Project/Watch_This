@@ -38,6 +38,9 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
     const [isLiking, setIsLiking] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null); // 답글 달 댓글 ID
+    const [replyText, setReplyText] = useState(''); // 답글 내용
 
     useEffect(() => {
         loadPostData();
@@ -133,7 +136,9 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
     };
 
     const handleSendComment = async () => {
-        if (!commentText.trim()) return;
+        if (!commentText.trim() || isSubmittingComment) return;
+
+        setIsSubmittingComment(true);
         try {
             await addComment(postId, commentText);
             setCommentText('');
@@ -141,7 +146,37 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
             setComments(newComments);
         } catch (e) {
             console.error(e);
+        } finally {
+            setIsSubmittingComment(false);
         }
+    };
+
+    const handleSendReply = async () => {
+        if (!replyText.trim() || isSubmittingComment || !replyingTo) return;
+
+        setIsSubmittingComment(true);
+        try {
+            await addComment(postId, replyText, replyingTo.id);
+            setReplyText('');
+            setReplyingTo(null);
+            const newComments = await getComments(postId);
+            setComments(newComments);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    // 댓글 구조화: 부모 댓글과 자식 댓글(답글)로 분리
+    const organizeComments = () => {
+        const parentComments = comments.filter(c => !c.parent_comment_id);
+        const childComments = comments.filter(c => c.parent_comment_id);
+
+        return parentComments.map(parent => ({
+            ...parent,
+            replies: childComments.filter(child => child.parent_comment_id === parent.id)
+        }));
     };
 
     const formatDate = (d) => {
@@ -176,7 +211,8 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
         if (onEditPost) {
             onEditPost(post);
         } else {
-            alert('포스트 수정 기능이 아직 구현되지 않았습니다.');
+            // 수정 페이지로 이동 (state로 포스트 데이터 전달)
+            navigate(`/post/${postId}/edit`, { state: { post, movieInfo } });
         }
     };
 
@@ -466,14 +502,58 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
             {showComments && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200, display:'flex', flexDirection:'column', justifyContent:'flex-end'
+                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200, display:'flex', flexDirection:'column', justifyContent:'flex-end', alignItems: 'center'
                 }} onClick={() => setShowComments(false)}>
-                    <div style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '20px', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{
+                        backgroundColor: '#fff',
+                        height: '60%',
+                        width: '100%',
+                        maxWidth: '480px',
+                        borderTopLeftRadius: '20px',
+                        borderTopRightRadius: '20px',
+                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 15px 0' }}>댓글</h3>
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px' }}>
-                            {comments.length > 0 ? comments.map(c => (
-                                <div key={c.id} style={{ padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                                    <b>{c.user?.nickname || '익명'}</b>: {c.content || c.body}
+                            {comments.length > 0 ? organizeComments().map(comment => (
+                                <div key={comment.id} style={{ marginBottom: '15px' }}>
+                                    {/* 부모 댓글 */}
+                                    <div style={{ padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <b>{comment.user?.nickname || '익명'}</b>: {comment.content || comment.body}
+                                            </div>
+                                            <button
+                                                onClick={() => setReplyingTo(comment)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#E35A5A',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    padding: '4px 8px',
+                                                    marginLeft: '8px',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                답글
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 답글 목록 */}
+                                    {comment.replies && comment.replies.length > 0 && (
+                                        <div style={{ marginLeft: '20px', marginTop: '5px' }}>
+                                            {comment.replies.map(reply => (
+                                                <div key={reply.id} style={{ padding: '8px 0', borderBottom: '1px solid #f5f5f5', fontSize: '14px' }}>
+                                                    <span style={{ color: '#E35A5A', marginRight: '4px' }}>↳</span>
+                                                    <b>{reply.user?.nickname || '익명'}</b>: {reply.content || reply.body}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )) : (
                                 <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>
@@ -481,16 +561,56 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
                                 </div>
                             )}
                         </div>
+
+                        {/* 답글 입력 중 표시 */}
+                        {replyingTo && (
+                            <div style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#f9f9f9',
+                                borderRadius: '6px',
+                                marginBottom: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontSize: '13px'
+                            }}>
+                                <span style={{ color: '#666' }}>
+                                    <b>{replyingTo.user?.nickname || '익명'}</b>님에게 답글 작성 중
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        setReplyingTo(null);
+                                        setReplyText('');
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#999',
+                                        cursor: 'pointer',
+                                        fontSize: '16px',
+                                        padding: '0 4px'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <input 
-                                type="text" 
-                                value={commentText} 
-                                onChange={e => setCommentText(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleSendComment()}
-                                placeholder="댓글 입력..."
+                            <input
+                                type="text"
+                                value={replyingTo ? replyText : commentText}
+                                onChange={e => replyingTo ? setReplyText(e.target.value) : setCommentText(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && !e.repeat && (replyingTo ? handleSendReply() : handleSendComment())}
+                                placeholder={replyingTo ? "답글 입력..." : "댓글 입력..."}
                                 style={{ flex: 1, padding: '10px', border: '1px solid #ddd', borderRadius: '8px' }}
                             />
-                            <button onClick={handleSendComment} style={{ padding: '0 15px', background: '#E35A5A', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>등록</button>
+                            <button
+                                onClick={replyingTo ? handleSendReply : handleSendComment}
+                                style={{ padding: '0 15px', background: '#E35A5A', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                            >
+                                등록
+                            </button>
                         </div>
                     </div>
                 </div>

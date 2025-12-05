@@ -150,14 +150,22 @@ export const getComments = async (postId) => {
 
 // POST /api/v1/posts/{post_id}/comments
 // [수정] 댓글 작성 (헤더 추가)
-export const addComment = async (postId, content) => {
+export const addComment = async (postId, content, parentCommentId = null) => {
+    const body = {
+        body: content
+    };
+
+    if (parentCommentId) {
+        body.parent_comment_id = parentCommentId;
+    }
+
     const res = await fetch(`/api/v1/posts/${postId}/comments`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-User-Id': getUserId(), // 유저 ID 전달
         },
-        body: JSON.stringify({ body: content }),
+        body: JSON.stringify(body),
     });
     if (!res.ok) {
         throw new Error('댓글 작성 실패');
