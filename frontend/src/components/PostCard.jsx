@@ -62,17 +62,20 @@ export default function PostCard({ post, onClick }) {
 
       {post.title && <h3 className="home-post-title">{post.title}</h3>}
 
-      {post.description && (
-        <p className="home-post-preview">{post.description}</p>
-      )}
-
-      {post.isSpoiler && (
+      {/* 스포일러가 있으면 내용만 숨기고 경고 메시지 표시 */}
+      {post.isSpoiler ? (
         <div className="home-post-spoiler">
           <span role="img" aria-label="spoiler">🤫</span>
           <span>스포일러가 포함된 포스트입니다!</span>
         </div>
+      ) : (
+        // 스포일러가 없으면 내용 표시
+        post.description && (
+          <p className="home-post-preview">{post.description}</p>
+        )
       )}
 
+      {/* 이미지는 스포일러 여부와 관계없이 항상 표시 */}
       {(hasImage || post.showPlaceholderImage) && (
         <div className={`home-post-image ${!hasImage ? 'placeholder' : ''}`}>
           {hasImage && <img src={post.image} alt={post.title || 'post'} />}

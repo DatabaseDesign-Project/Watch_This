@@ -69,7 +69,7 @@ export default function App() {
           liked: p.liked || p.is_liked || false,
           emoji: p.emoji?.emoji_image || null,
           createdAt: p.created_at,
-          isSpoiler: Boolean(p.is_spoiler),
+          isSpoiler: Boolean(p.is_spoiler || p.has_spoiler),
           showPlaceholderImage: !image,
         };
       });
