@@ -381,7 +381,6 @@ async def feed(
             "questionMedias": True,
             "emoji": True,
             "movie": True,
-            "comments": True,
         },
     )
 
@@ -392,21 +391,25 @@ async def feed(
             like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
             liked_set = {int(r.post_id) for r in like_rows}
 
-        # 모든 포스트의 평점 정보 배치 조회
+        # 모든 포스트의 평점 정보 배치 조회 (N+1 쿼리 문제 해결)
         rating_map = {}
         if posts:
-            user_movie_pairs = [(int(p.user_id), int(p.movie_id)) for p in posts if p.movie_id]
-            if user_movie_pairs:
-                # 각 사용자-영화 조합에 대한 평점 조회
-                for user_id, movie_id in user_movie_pairs:
-                    try:
-                        rating_record = await db.ratings.find_unique(
-                            where={"user_id_movie_id": {"user_id": user_id, "movie_id": movie_id}}
-                        )
-                        if rating_record:
-                            rating_map[(user_id, movie_id)] = float(rating_record.rating)
-                    except Exception:
-                        pass
+            user_ids = list(set(int(p.user_id) for p in posts))
+            movie_ids = list(set(int(p.movie_id) for p in posts if p.movie_id))
+
+            if user_ids and movie_ids:
+                # 한 번의 쿼리로 모든 평점 조회
+                all_ratings = await db.ratings.find_many(
+                    where={
+                        "AND": [
+                            {"user_id": {"in": user_ids}},
+                            {"movie_id": {"in": movie_ids}}
+                        ]
+                    }
+                )
+                # 맵으로 변환
+                for r in all_ratings:
+                    rating_map[(int(r.user_id), int(r.movie_id))] = float(r.rating)
 
         encoded = jsonable_encoder(posts)
         for idx, p in enumerate(posts):
@@ -699,7 +702,6 @@ async def list_user_posts(
             "questionMedias": True,
             "emoji": True,
             "movie": True,
-            "comments": True,
         },
     )
 
@@ -710,20 +712,25 @@ async def list_user_posts(
             like_rows = await db.likes.find_many(where={"user_id": current_user_id, "post_id": {"in": post_ids}})
             liked_set = {int(r.post_id) for r in like_rows}
 
-        # 모든 포스트의 평점 정보 배치 조회
+        # 모든 포스트의 평점 정보 배치 조회 (N+1 쿼리 문제 해결)
         rating_map = {}
         if rows:
-            user_movie_pairs = [(int(r.user_id), int(r.movie_id)) for r in rows if r.movie_id]
-            if user_movie_pairs:
-                for uid, mid in user_movie_pairs:
-                    try:
-                        rating_record = await db.ratings.find_unique(
-                            where={"user_id_movie_id": {"user_id": uid, "movie_id": mid}}
-                        )
-                        if rating_record:
-                            rating_map[(uid, mid)] = float(rating_record.rating)
-                    except Exception:
-                        pass
+            user_ids = list(set(int(r.user_id) for r in rows))
+            movie_ids = list(set(int(r.movie_id) for r in rows if r.movie_id))
+
+            if user_ids and movie_ids:
+                # 한 번의 쿼리로 모든 평점 조회
+                all_ratings = await db.ratings.find_many(
+                    where={
+                        "AND": [
+                            {"user_id": {"in": user_ids}},
+                            {"movie_id": {"in": movie_ids}}
+                        ]
+                    }
+                )
+                # 맵으로 변환
+                for r in all_ratings:
+                    rating_map[(int(r.user_id), int(r.movie_id))] = float(r.rating)
 
         encoded = jsonable_encoder(rows)
         for idx, r in enumerate(rows):

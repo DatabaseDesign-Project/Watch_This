@@ -65,7 +65,7 @@ export default function App() {
           description,
           image,
           likes: p.like_cnt || 0,
-          comments: (p.comments || []).length || 0,
+          comments: p._count?.comments || (p.comments || []).length || 0,
           liked: p.liked || p.is_liked || false,
           emoji: p.emoji?.emoji_image || null,
           createdAt: p.created_at,

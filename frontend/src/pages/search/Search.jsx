@@ -31,8 +31,8 @@ const Search = () => {
           try {
             const parsedCache = JSON.parse(cached);
             const cacheTime = parsedCache.timestamp || 0;
-            // 5분 이내 캐시는 유효
-            if (Date.now() - cacheTime < 5 * 60 * 1000) {
+            // 30분 이내 캐시는 유효 (5분 → 30분으로 증가)
+            if (Date.now() - cacheTime < 30 * 60 * 1000) {
               setHighlights({
                 popular: parsedCache.popular || [],
                 mostReviewed: parsedCache.mostReviewed || []

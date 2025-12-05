@@ -483,7 +483,7 @@ async def list_movie_posts_by_tmdb(
 # =========================================================
 
 _HIGHLIGHTS_CACHE_KEY = "movies:highlights:v3"  # 통합 캐시
-_HIGHLIGHTS_TTL_SEC = 1800  # 30분
+_HIGHLIGHTS_TTL_SEC = 21600  # 6시간 (30분 → 6시간으로 증가)
 
 async def _genres_for_movies(movie_ids: List[int]) -> Dict[int, List[str]]:
     """movies 테이블의 genre1~5 컬럼에서 장르 정보를 가져옴 (TMDB ID 기준)"""
