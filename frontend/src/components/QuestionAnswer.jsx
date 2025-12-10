@@ -7,17 +7,18 @@ export default function QuestionAnswer({
     placeholder,
     answerValue = '',       // controlled: 부모가 관리하는 답변 값
     onAnswerChange,
-    onImageUpload,          // (file: File) => void - File 객체 전달
-    uploadedImageUrl,       // 미리보기용 URL (부모가 관리)
-    onDeleteImage,          // 이미지 삭제 핸들러
+    onImageUpload,          // (files: File[]) => void - File 배열 전달
+    uploadedImageUrls,      // 미리보기용 URL 배열 (부모가 관리)
+    onDeleteImage,          // (index: number) => void - 인덱스로 이미지 삭제
     onDeleteQuestion,       // 질문 삭제 핸들러 (null이면 삭제 버튼 표시 안 함)
     showEmojiPicker = false,
     onEmojiSelect
 }) {
     const handleFileChange = (event) => {
-        const file = event.target.files?.[0];
-        if (file && onImageUpload) {
-            onImageUpload(file);  // File 객체를 부모에게 전달
+        const files = event.target.files;
+        if (files && files.length > 0 && onImageUpload) {
+            // 새로 선택된 파일들을 배열로 전달 (부모가 append/replace 처리)
+            onImageUpload(Array.from(files));
         }
         // input 초기화 (같은 파일 재선택 가능하도록)
         event.target.value = '';
@@ -95,47 +96,59 @@ export default function QuestionAnswer({
                 />
 
                 {/* 이미지 미리보기 */}
-                {uploadedImageUrl && (
-                    <div style={{
-                        position: 'relative',
-                        marginTop: '10px',
-                        width: '100px',
-                        height: '100px',
-                        display: 'inline-block'
-                    }}>
-                        <ImageWithFallback
-                            src={uploadedImageUrl}
-                            alt="첨부 이미지"
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                borderRadius: '8px'
-                            }}
-                        />
-                        {onDeleteImage && (
-                            <button
-                                onClick={onDeleteImage}
-                                style={{
-                                    position: 'absolute',
-                                    top: -8,
-                                    right: -8,
-                                    background: '#333',
-                                    color: '#fff',
-                                    borderRadius: '50%',
-                                    width: '24px',
-                                    height: '24px',
-                                    border: 'none',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                ✕
-                            </button>
-                        )}
+                {uploadedImageUrls && uploadedImageUrls.length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                            gap: '8px',
+                            maxWidth: '100%'
+                        }}>
+                            {uploadedImageUrls.map((imgData, idx) => (
+                                <div key={idx} style={{
+                                    position: 'relative',
+                                    width: '90px',
+                                    height: '90px',
+                                    overflow: 'hidden',
+                                    borderRadius: '8px',
+                                    backgroundColor: '#f0f0f0'
+                                }}>
+                                    <img
+                                        src={imgData?.previewUrl}
+                                        alt={`첨부 이미지 ${idx + 1}`}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            display: 'block'
+                                        }}
+                                    />
+                                    {onDeleteImage && (
+                                        <button
+                                            onClick={() => onDeleteImage(idx)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: -8,
+                                                right: -8,
+                                                background: '#333',
+                                                color: '#fff',
+                                                borderRadius: '50%',
+                                                width: '24px',
+                                                height: '24px',
+                                                border: 'none',
+                                                fontSize: '12px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -173,6 +186,7 @@ export default function QuestionAnswer({
                         <input
                             type="file"
                             accept="image/*"
+                            multiple
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
                         />

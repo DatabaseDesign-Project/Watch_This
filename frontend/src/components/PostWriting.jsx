@@ -65,7 +65,7 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         }
     ]);
     
-    // 질문별 이미지 파일 상태: { [localQuestionId]: { file: File, previewUrl: string } }
+    // 질문별 이미지 파일 상태: { [localQuestionId]: [{ file: File, previewUrl: string }, ...] }
     const [questionImages, setQuestionImages] = useState({});
     
     const [serverQuestions, setServerQuestions] = useState([]);
@@ -168,9 +168,11 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
             return;
         }
 
-        // 해당 질문에 첨부된 이미지도 삭제
-        if (questionImages[localId]?.previewUrl) {
-            URL.revokeObjectURL(questionImages[localId].previewUrl);
+        // 해당 질문에 첨부된 이미지들도 정리 (blob fallback만 revoke)
+        if (questionImages[localId]) {
+            questionImages[localId].forEach((img) => {
+                if (img.revokeUrl) URL.revokeObjectURL(img.revokeUrl);
+            });
         }
 
         setQuestions(questions.filter(q => q.id !== localId));
@@ -181,23 +183,48 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
         });
     };
 
-    // 이미지 업로드 핸들러 (File 객체 저장)
-    const handleImageUpload = (localQuestionId, file) => {
-        const previewUrl = URL.createObjectURL(file);
-        setQuestionImages(prev => ({
-            ...prev,
-            [localQuestionId]: { file, previewUrl }
-        }));
+    // 이미지 업로드 핸들러 (여러 장 지원, 안정적인 Data URL 우선)
+    const handleImageUpload = (localQuestionId, files) => {
+        const toPreview = (file) => new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                resolve({ file, previewUrl: e.target?.result, revokeUrl: null });
+            };
+            reader.onerror = () => {
+                // FileReader 실패 시 blob URL로 폴백
+                const blobUrl = URL.createObjectURL(file);
+                resolve({ file, previewUrl: blobUrl, revokeUrl: blobUrl });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        Promise.all(Array.from(files).map(toPreview)).then((newImages) => {
+            setQuestionImages((prev) => {
+                const existing = prev[localQuestionId] || [];
+                return {
+                    ...prev,
+                    [localQuestionId]: [...existing, ...newImages],
+                };
+            });
+        });
     };
 
     // 이미지 삭제 핸들러
-    const handleDeleteImage = (localQuestionId) => {
-        setQuestionImages(prev => {
+    const handleDeleteImage = (localQuestionId, imageIndex) => {
+        setQuestionImages((prev) => {
             const newState = { ...prev };
-            if (newState[localQuestionId]?.previewUrl) {
-                URL.revokeObjectURL(newState[localQuestionId].previewUrl);
+            if (newState[localQuestionId]) {
+                const images = [...newState[localQuestionId]];
+                const target = images[imageIndex];
+                if (target?.revokeUrl) URL.revokeObjectURL(target.revokeUrl);
+                images.splice(imageIndex, 1);
+
+                if (images.length === 0) {
+                    delete newState[localQuestionId];
+                } else {
+                    newState[localQuestionId] = images;
+                }
             }
-            delete newState[localQuestionId];
             return newState;
         });
     };
@@ -267,9 +294,14 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
             // 2. 이미지 업로드 (포스트 생성 후)
             const imageEntries = Object.entries(questionImages);
             if (imageEntries.length > 0) {
-                console.log(`📸 ${imageEntries.length}개 이미지 업로드 시작...`);
+                let totalImages = 0;
+                for (const [_, imageArray] of imageEntries) {
+                    totalImages += imageArray.length;
+                }
                 
-                for (const [localIdStr, imageData] of imageEntries) {
+                console.log(`📸 ${totalImages}개 이미지 업로드 시작...`);
+                
+                for (const [localIdStr, imageArray] of imageEntries) {
                     const localId = parseInt(localIdStr, 10);
                     const question = questions.find(q => q.id === localId);
                     
@@ -278,18 +310,21 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                         continue;
                     }
 
-                    try {
-                        console.log(`📤 업로드 중: postId=${postId}, questionId=${question.question_id}`);
-                        const uploadResult = await uploadMediaForPost(
-                            postId,
-                            question.question_id,
-                            imageData.file
-                        );
-                        console.log('✅ 이미지 업로드 완료:', uploadResult);
-                    } catch (uploadErr) {
-                        console.error(`❌ 이미지 업로드 실패 (QID: ${question.question_id}):`, uploadErr);
-                        // 이미지 업로드 실패해도 포스트는 이미 생성됨 - 경고만 표시
-                        alert(`이미지 업로드 중 일부 오류가 발생했습니다: ${uploadErr.message}`);
+                    // 각 질문에 대해 여러 이미지 업로드
+                    for (const imageData of imageArray) {
+                        try {
+                            console.log(`📤 업로드 중: postId=${postId}, questionId=${question.question_id}`);
+                            const uploadResult = await uploadMediaForPost(
+                                postId,
+                                question.question_id,
+                                imageData.file
+                            );
+                            console.log('✅ 이미지 업로드 완료:', uploadResult);
+                        } catch (uploadErr) {
+                            console.error(`❌ 이미지 업로드 실패 (QID: ${question.question_id}):`, uploadErr);
+                            // 이미지 업로드 실패해도 포스트는 이미 생성됨 - 경고만 표시
+                            alert(`이미지 업로드 중 일부 오류가 발생했습니다: ${uploadErr.message}`);
+                        }
                     }
                 }
             }
@@ -313,8 +348,12 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
     // cleanup preview URLs on unmount
     useEffect(() => {
         return () => {
-            Object.values(questionImages).forEach(img => {
-                if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+            Object.values(questionImages).forEach((imageArray) => {
+                if (Array.isArray(imageArray)) {
+                    imageArray.forEach((img) => {
+                        if (img.revokeUrl) URL.revokeObjectURL(img.revokeUrl);
+                    });
+                }
             });
         };
     }, []);
@@ -437,9 +476,9 @@ export default function PostWriting({ movie, onBack, onSubmit }) {
                         placeholder={question.placeholder}
                         answerValue={question.answer}
                         onAnswerChange={(answer) => handleQuestionAnswerChange(question.id, answer)}
-                        onImageUpload={(file) => handleImageUpload(question.id, file)}
-                        uploadedImageUrl={questionImages[question.id]?.previewUrl}
-                        onDeleteImage={() => handleDeleteImage(question.id)}
+                        onImageUpload={(files) => handleImageUpload(question.id, files)}
+                        uploadedImageUrls={questionImages[question.id] || []}
+                        onDeleteImage={(idx) => handleDeleteImage(question.id, idx)}
                         onDeleteQuestion={question.question !== '자유롭게 이야기를 들려주세요!' ? () => handleDeleteQuestion(question.id) : null}
                         showEmojiPicker={false}
                     />
