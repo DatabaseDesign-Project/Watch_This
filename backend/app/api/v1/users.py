@@ -35,15 +35,23 @@ async def patch_my_profile(payload: ProfileUpdate, current_user_id: int = Depend
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    # nickname uniqueness
-    if payload.nickname and payload.nickname != user.nickname:
-        exists = await db.users.find_unique(where={"nickname": payload.nickname})
-        if exists:
-            raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
-
     update_data = {}
+    
+    # nickname 처리
     if payload.nickname is not None:
-        update_data["nickname"] = payload.nickname
+        trimmed_nickname = payload.nickname.strip()
+        if not trimmed_nickname:
+            raise HTTPException(status_code=400, detail="닉네임은 비워둘 수 없습니다.")
+        
+        # nickname uniqueness check only if changed (use find_first since nickname is not unique)
+        if trimmed_nickname != user.nickname:
+            exists = await db.users.find_first(where={"nickname": trimmed_nickname})
+            if exists:
+                raise HTTPException(status_code=400, detail="이미 사용 중인 닉네임입니다.")
+        
+        update_data["nickname"] = trimmed_nickname
+    
+    # profile_image 처리
     if payload.profile_image is not None:
         update_data["profile_image"] = payload.profile_image
 

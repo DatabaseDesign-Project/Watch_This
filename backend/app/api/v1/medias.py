@@ -14,6 +14,28 @@ APP_ROOT = Path(__file__).resolve().parents[3]  # backend/app
 UPLOAD_DIR = APP_ROOT / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+@router.post("/upload-avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_current_user_id),
+):
+    """프로필 이미지 업로드 전용 엔드포인트"""
+    # 이미지 파일만 허용
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+    
+    # 확장자 보존
+    _, ext = os.path.splitext(file.filename or "")
+    fname = f"avatar_{user_id}_{uuid.uuid4().hex}{ext.lower()}"
+    abs_path = UPLOAD_DIR / fname
+
+    # 파일 저장
+    content = await file.read()
+    abs_path.write_bytes(content)
+
+    # 상대 경로 반환 (프런트에서 접근할 수 있도록)
+    return {"url": f"/static/uploads/{fname}"}
+
 @router.post("/upload", response_model=MediaUploadOut)
 async def upload_media(
     post_id: int = Form(...),
