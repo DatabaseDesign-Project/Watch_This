@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
                     // rewrite: (p) => p.replace(/^\/api/, ''),
                 },
                 '/static': {
-                    target: 'http://localhost:8000',
+                    target: apiBase,
                     changeOrigin: true,
       },
             },

@@ -7,7 +7,15 @@ import Header from '../../components/Header';
 import { Button } from '../../components/Button';
 import FriendsButton from '../../components/FriendsButton';
 import PostCard from '../../components/PostCard';
+import EditProfileDialog from '../../components/EditProfileDialog';
 import { getProfile, getUserPosts, getFriends } from '../../api';
+
+// 이미지 URL 처리 함수
+function getImageUrl(path) {
+  if (!path) return null;
+  // /static 경로는 Vite 프록시가 처리하므로 그대로 반환
+  return path;
+}
 
 function Profile() {
   const navigate = useNavigate();
@@ -84,8 +92,11 @@ function Profile() {
   const handleSettingsClick = () => navigate('/settings');
   
   const handleEditProfile = () => {
-    // 프로필 편집 로직 (임시로 alert)
-    alert('프로필 편집 기능은 준비중입니다.');
+    setEditOpen(true);
+  };
+
+  const handleProfileUpdated = (updatedUser) => {
+    setUser(updatedUser);
   };
 
   const handlePostClick = (post) => {
@@ -176,7 +187,7 @@ function Profile() {
             <div className="profile-card">
               <div className="profile-avatar">
                 {user.profileImage ? (
-                  <img src={user.profileImage} alt="프로필" className="avatar-image" />
+                  <img src={getImageUrl(user.profileImage)} alt="프로필" className="avatar-image" />
                 ) : (
                   <div className="avatar-placeholder">
                     <span className="avatar-initial">{user.name?.charAt(0) || 'U'}</span>
@@ -233,6 +244,14 @@ function Profile() {
 
         {/* 하단 네비게이션 */}
         <BottomNavigation activeTab="profile" />
+        
+        {/* 프로필 편집 다이얼로그 */}
+        <EditProfileDialog 
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          user={user}
+          onUpdated={handleProfileUpdated}
+        />
       </div>
     </div>
   );

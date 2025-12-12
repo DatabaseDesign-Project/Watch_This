@@ -3,6 +3,7 @@ import './index.css'
 import { Button } from "./components/Button";
 import { AuthModal } from "./components/AuthModal";
 import { MobileStatusBar } from "./components/MobileStatusBar";
+import Logo from "./assets/Logo_WatchThis.svg";
 
 function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -26,6 +27,11 @@ function App() {
           {/* 로고 */}
           <div style={{ marginBottom: "4rem", textAlign: "center" }}>
             <div style={{ width: "188px", height: "209px", margin: "0 auto" }}>
+              <img 
+                src={Logo} 
+                alt="Watch This Logo" 
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
             </div>
           </div>
 

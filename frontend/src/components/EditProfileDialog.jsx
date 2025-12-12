@@ -6,6 +6,13 @@ import {
 } from '@mui/material';
 import { updateProfile, uploadAvatar } from '../api';
 
+// 이미지 URL 처리 함수
+function getImageUrl(path) {
+  if (!path) return null;
+  // /static 경로는 Vite 프록시가 처리하므로 그대로 반환
+  return path;
+}
+
 export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
   const [name, setName] = useState(user?.name || '');
   // const [email, setEmail] = useState(user?.email || '');
@@ -16,7 +23,7 @@ export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
   useEffect(() => {
     if (user && open) {
       setName(user.name || '');
-      setPreview(user.profileImage || null);
+      setPreview(getImageUrl(user.profileImage) || null);
       setFile(null);
     }
   }, [user, open]);
@@ -32,17 +39,27 @@ export default function EditProfileDialog({ open, onClose, user, onUpdated }) {
   const handleSave = async () => {
     try {
       setSaving(true);
+      
+      // 닉네임 유효성 검사
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        alert('닉네임을 입력해주세요.');
+        setSaving(false);
+        return;
+      }
+      
       let avatarUrl = user.profileImage;
       if (file) {
         const up = await uploadAvatar(file); // {url: "..."}
         avatarUrl = up.url;
       }
       // const updated = await updateProfile({ name, email, profileImage: avatarUrl });
-      const updated = await updateProfile({ name, profileImage: avatarUrl });
+      const updated = await updateProfile({ name: trimmedName, profileImage: avatarUrl });
 
       onUpdated(updated);
       onClose();
     } catch (e) {
+      console.error('프로필 저장 오류:', e);
       alert(e.message || '저장 실패');
     } finally {
       setSaving(false);

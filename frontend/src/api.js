@@ -73,12 +73,12 @@ export async function updateProfile({ name, profileImage }) {
   return getProfile();
 }
 
-// POST /api/v1/medias/upload  → { url: "..."}
+// POST /api/v1/medias/upload-avatar  → { url: "..."}
 export async function uploadAvatar(file) {
   const fd = new FormData();
   fd.append('file', file);
 
-  const res = await fetch(`${API_ROOT}/v1/medias/upload`, {
+  const res = await fetch(`${API_ROOT}/v1/medias/upload-avatar`, {
     method: 'POST',
     body: fd,
     credentials: 'include',
