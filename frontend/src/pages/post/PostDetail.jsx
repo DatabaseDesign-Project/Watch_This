@@ -37,6 +37,8 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
     const [isLiked, setIsLiked] = useState(false);
     const [isLiking, setIsLiking] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [isClosingComments, setIsClosingComments] = useState(false);
+    const [isOpeningComments, setIsOpeningComments] = useState(false);
     const [showOptionsMenu, setShowOptionsMenu] = useState(false);
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null); // 답글 달 댓글 ID
@@ -103,6 +105,25 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOpenComments = () => {
+        setShowComments(true);
+        setIsOpeningComments(true);
+        // 다음 프레임에서 애니메이션 시작
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                setIsOpeningComments(false);
+            });
+        });
+    };
+
+    const handleCloseComments = () => {
+        setIsClosingComments(true);
+        setTimeout(() => {
+            setShowComments(false);
+            setIsClosingComments(false);
+        }, 300);
     };
 
     const handleLike = async () => {
@@ -481,7 +502,7 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
                         <span style={{ fontSize: '20px' }}>{isLiked ? '❤️' : '🤍'}</span>
                         <span style={{ fontWeight: '500', color: '#333' }}>{post.like_cnt || 0}</span>
                     </button>
-                    <button onClick={() => setShowComments(!showComments)} style={{ 
+                    <button onClick={() => showComments ? handleCloseComments() : handleOpenComments()} style={{ 
                         background: 'none', 
                         border: 'none', 
                         display: 'flex', 
@@ -498,22 +519,25 @@ export default function PostDetail({ postId: propPostId, onBack: propOnBack, onE
                 </div>
             </div>
 
-            {/* 댓글 Drawer */}
+            {/* 댑글 Drawer */}
             {showComments && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200, display:'flex', flexDirection:'column', justifyContent:'flex-end', alignItems: 'center'
-                }} onClick={() => setShowComments(false)}>
+                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200, display:'flex', flexDirection:'column', justifyContent:'flex-end', alignItems: 'center',
+                    animation: isClosingComments ? 'fadeOut 0.3s ease-out' : 'fadeIn 0.3s ease-out'
+                }} onClick={handleCloseComments}>
                     <div style={{
                         backgroundColor: '#fff',
                         height: '60%',
                         width: '100%',
-                        maxWidth: '480px',
+                        maxWidth: '360px',
                         borderTopLeftRadius: '20px',
                         borderTopRightRadius: '20px',
                         padding: '20px',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        transform: isClosingComments ? 'translateY(100%)' : (isOpeningComments ? 'translateY(100%)' : 'translateY(0)'),
+                        transition: 'transform 0.3s ease-out'
                     }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: '0 0 15px 0' }}>댓글</h3>
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '10px' }}>
