@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { toggleLike } from '../api';
 
-export default function PostCard({ post, onClick }) {
+function PostCard({ post, onClick }) {
   const [liked, setLiked] = useState(post.liked || false);
   const [likes, setLikes] = useState(post.likes || 0);
   const [isLiking, setIsLiking] = useState(false);
@@ -17,7 +17,7 @@ export default function PostCard({ post, onClick }) {
     return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
   };
 
-  const handleLike = async (e) => {
+  const handleLike = useCallback(async (e) => {
     e.stopPropagation();
     e.preventDefault();
     
@@ -41,17 +41,21 @@ export default function PostCard({ post, onClick }) {
     } finally {
       setIsLiking(false);
     }
-  };
+  }, [isLiking, liked, likes, post.id]);
 
-  const handleCommentClick = (e) => {
+  const handleCommentClick = useCallback((e) => {
     e.stopPropagation();
     if (onClick) onClick(post);
-  };
+  }, [onClick, post]);
+
+  const handleCardClick = useCallback(() => {
+    if (onClick) onClick(post);
+  }, [onClick, post]);
 
   const hasImage = Boolean(post.image);
 
   return (
-    <article className="home-post-card" onClick={() => onClick && onClick(post)}>
+    <article className="home-post-card" onClick={handleCardClick}>
       <div className="home-post-header">
         <span className="home-post-author">
           {post.category}
@@ -78,7 +82,7 @@ export default function PostCard({ post, onClick }) {
       {/* 이미지는 스포일러 여부와 관계없이 항상 표시 */}
       {(hasImage || post.showPlaceholderImage) && (
         <div className={`home-post-image ${!hasImage ? 'placeholder' : ''}`}>
-          {hasImage && <img src={post.image} alt={post.title || 'post'} />}
+          {hasImage && <img src={post.image} alt={post.title || 'post'} loading="lazy" />}
         </div>
       )}
 
@@ -107,3 +111,10 @@ export default function PostCard({ post, onClick }) {
     </article>
   );
 }
+
+// React.memo로 최적화 - post.id가 같으면 리렌더링 방지
+export default memo(PostCard, (prevProps, nextProps) => {
+  return prevProps.post.id === nextProps.post.id &&
+         prevProps.post.liked === nextProps.post.liked &&
+         prevProps.post.likes === nextProps.post.likes;
+});

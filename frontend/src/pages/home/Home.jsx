@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../index.css';
 import { MobileStatusBar } from '../../components/MobileStatusBar';
@@ -10,19 +10,76 @@ import MovieSearch from '../../components/MovieSearch';
 import PostWriting from '../../components/PostWriting';
 import PostDetail from '../post/PostDetail';
 
+const CACHE_KEY = 'home_feed_cache';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
+
+// 캐시에서 데이터 로드 (컴포넌트 외부)
+const loadFromCache = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    const now = Date.now();
+    
+    if (now - timestamp < CACHE_TTL) {
+      return data;
+    }
+    
+    localStorage.removeItem(CACHE_KEY);
+    return null;
+  } catch (err) {
+    console.error('캐시 로드 실패:', err);
+    return null;
+  }
+};
+
+// 캐시에 데이터 저장 (컴포넌트 외부)
+const saveToCache = (data) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (err) {
+    console.error('캐시 저장 실패:', err);
+  }
+};
+
 export default function App() {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('feed');
   const [activeTab, setActiveTab] = useState('home');
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
-  const [posts, setPosts] = useState([]);
+  
+  // 초기 캐시 로드 (즉시 실행)
+  const [posts, setPosts] = useState(() => {
+    const cached = loadFromCache();
+    if (cached) {
+      console.log('초기 캐시 데이터 로드');
+      return cached;
+    }
+    return [];
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
   const minimal = urlParams.get('minimal') === '1';
 
-  const fetchFeed = async (retryCount = 0) => {
+  const fetchFeed = useCallback(async (retryCount = 0, useCache = true) => {
     try {
+      // 캐시 먼저 확인 (첫 로딩시에만)
+      if (useCache && posts.length === 0) {
+        const cachedData = loadFromCache();
+        if (cachedData) {
+          console.log('캐시된 데이터 사용');
+          setPosts(cachedData);
+          // 백그라운드에서 최신 데이터 가져오기
+          fetchFeed(0, false);
+          return;
+        }
+      }
+
       const uid = localStorage.getItem('user_id') || '1';
       
       // 타임아웃 설정 (10초)
@@ -42,7 +99,7 @@ export default function App() {
         if (res.status >= 500 && retryCount < 1) {
           console.log('재시도 중...');
           await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchFeed(retryCount + 1);
+          return fetchFeed(retryCount + 1, false);
         }
         return;
       }
@@ -75,46 +132,67 @@ export default function App() {
       });
 
       setPosts(mapped);
+      
+      // 캐시에 저장
+      if (!useCache) {
+        saveToCache(mapped);
+      }
     } catch (err) {
       if (err.name === 'AbortError') {
         console.error('피드 로딩 타임아웃');
       } else {
         console.error('feed fetch failed', err);
       }
+      // 에러 발생시 캐시 데이터 사용 시도
+      if (posts.length === 0) {
+        const cachedData = loadFromCache();
+        if (cachedData) {
+          console.log('에러 발생, 캐시된 데이터 사용');
+          setPosts(cachedData);
+          return;
+        }
+      }
       // 에러 발생시 빈 배열로 설정 (페이지는 정상 표시)
       setPosts([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (currentView === 'feed') fetchFeed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentView]);
+    if (currentView === 'feed') {
+      // 캐시가 있으면 백그라운드에서만 업데이트
+      const hasCache = posts.length > 0;
+      if (hasCache) {
+        fetchFeed(0, false); // 백그라운드 업데이트
+      } else {
+        fetchFeed(); // 캐시 확인 후 로드
+      }
+    }
+  }, [currentView, fetchFeed]);
 
-  const handleFabClick = () => setCurrentView('movieSearch');
+  const handleFabClick = useCallback(() => setCurrentView('movieSearch'), []);
 
-  const handleBackToFeed = () => {
+  const handleBackToFeed = useCallback(() => {
     setCurrentView('feed');
     setSelectedMovie(null);
     setSelectedPostId(null);
-  };
+  }, []);
 
-  const handlePostClick = (post) => {
+  const handlePostClick = useCallback((post) => {
     navigate(`/post/${post.id}`);
-  };
+  }, [navigate]);
 
-  const handleMovieSelect = (movie) => {
+  const handleMovieSelect = useCallback((movie) => {
     setSelectedMovie(movie);
     setCurrentView('postWriting');
-  };
+  }, []);
 
-  const handleBackToSearch = () => setCurrentView('movieSearch');
+  const handleBackToSearch = useCallback(() => setCurrentView('movieSearch'), []);
 
-  const handleSubmitPost = async () => {
+  const handleSubmitPost = useCallback(async () => {
     setCurrentView('feed');
     setSelectedMovie(null);
     await fetchFeed();
-  };
+  }, [fetchFeed]);
 
   return (
     <div className="fullscreen">
