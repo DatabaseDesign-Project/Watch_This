@@ -1,5 +1,10 @@
 # 이거 봤어?
-Movie and series recommendation and review service
+> 사용자가 자신만의 영화 감상을 아카이브 형태로 체계적으로 관리하고 공유할 수 있는 소셜 플랫폼
+
+| Feed | Post | Search | Movie |
+|:----:|:----:|:------:|:-----:|
+| <img src="https://github.com/user-attachments/assets/274593cd-82cb-4775-9b0e-e6f3c519b91c" width="200"/> | <img src="https://github.com/user-attachments/assets/e4a7cb1b-86b6-4d0b-a349-7ecd4b43016d" width="200"/> | <img src="https://github.com/user-attachments/assets/385ae46f-c79e-487f-905b-8779ddb3ec0f" width="200"/> | <img src="https://github.com/user-attachments/assets/e58b0c35-ac10-474a-835c-5a98362066e8" width="200"/> |
+
 
 ## 사용법
 
